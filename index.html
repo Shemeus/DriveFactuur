@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Drive Factuur v4.3</title>
+  
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+
+:root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f3f5f8;--brand:#0f766e;--dark:#0f172a;--line:#d8dee8}
+*{box-sizing:border-box}body{margin:0;background:#f3f5f8}button,input,select{font:inherit}
+.app-header{background:var(--dark);color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}.app-header h1{margin:0;font-size:24px}.app-header p{margin:3px 0 0;color:#cbd5e1}
+.app-shell{max-width:1100px;margin:auto;padding:18px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.tab{background:#fff;color:var(--dark);border:1px solid var(--line)}.tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.hidden{display:none!important}.view{display:none}.view.active{display:block}.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px #0000000a}.panel h2{margin:0 0 15px}.panel-title-row{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.panel-actions{display:flex;gap:8px;flex-wrap:wrap}.helper{color:#64748b;font-size:13px;margin:8px 0 0}.exam-split{display:none;margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc}.exam-split.active{display:block}.logo-settings{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.logo-thumb{width:220px;height:90px;object-fit:contain;border:1px dashed #94a3b8;border-radius:10px;background:#fff;padding:8px}.logo-thumb.hidden{display:none}
+.grid{display:grid;gap:14px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.full{grid-column:1/-1}label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:14px}input,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#111827}input:focus,select:focus{outline:2px solid #99f6e4;border-color:var(--brand)}
+button{border:none;border-radius:9px;padding:11px 15px;background:var(--brand);color:#fff;font-weight:700;cursor:pointer}.secondary{background:#fff;color:var(--dark);border:1px solid #cbd5e1}.danger{background:#b91c1c}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:30px}
+.invoice-line{display:grid;grid-template-columns:1.1fr 1.1fr 2fr .7fr 1fr .7fr 1fr auto;gap:9px;align-items:end;border-top:1px solid #e5e7eb;padding:14px 0}.invoice-line:first-child{border-top:0}.line-total-wrap{display:flex;flex-direction:column;gap:8px;font-size:14px}.line-total-wrap span{font-weight:700}.line-total{padding:11px 0}
+.totals-panel{display:flex;justify-content:flex-end}.totals{display:grid;grid-template-columns:190px 150px;gap:9px 15px;align-items:center}.totals strong{text-align:right;font-size:17px}.totals input{text-align:right}.open-label,.open{font-size:20px!important;color:#b91c1c}
+.saved-list{display:grid;gap:10px}.saved-card{border:1px solid var(--line);border-radius:10px;padding:13px;display:flex;justify-content:space-between;gap:10px;align-items:center}.saved-card small{display:block;color:#64748b;margin-top:4px}.saved-actions{display:flex;gap:7px;flex-wrap:wrap}
+
+dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;padding:0;background:#dfe3e8;overflow:auto}dialog::backdrop{background:#0008}.dialog-toolbar{padding:10px;background:#fff;display:flex;justify-content:flex-end;gap:8px;position:sticky;top:0;z-index:3;border-bottom:1px solid #ddd}
+.invoice-paper{position:relative;width:210mm;min-height:297mm;height:auto;margin:14px auto;background:#fff;padding:10mm 10mm 9mm 15mm;color:#111;font-family:'Open Sans',Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.35;overflow:visible;box-shadow:0 2px 12px #0002}
+.pdf-header{min-height:53mm;position:relative}.pdf-logo-box{height:29mm;display:flex;justify-content:center;align-items:flex-start}.invoice-logo{max-width:118mm;max-height:27mm;object-fit:contain}.brand-title{font-size:24pt;font-weight:800;text-align:center;padding-top:4mm}.pdf-company{display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:5mm;line-height:1.48;font-size:12pt}.pdf-company p{margin:0}.pdf-company .right{text-align:right}.pdf-party-row{display:grid;grid-template-columns:1.12fr .88fr;gap:15mm;margin-top:7mm;margin-bottom:5mm;break-inside:avoid;page-break-inside:avoid}.pdf-customer p{margin:0}.pdf-customer .name{font-weight:700;margin-bottom:1.5mm}.pdf-meta{display:grid;grid-template-columns:31mm 1fr;gap:1.2mm 2.5mm}.pdf-meta .headline{font-weight:700}.pdf-meta .term-head{font-weight:700}.invoice-table{width:100%;margin-left:0;border-collapse:collapse;border-spacing:0;table-layout:fixed;margin-top:2mm;font-size:12pt;border:.35mm solid #8f969e!important;box-sizing:border-box}.invoice-table th,.invoice-table td{border:.3mm solid #aeb4bb;padding:3.1mm 3mm;vertical-align:middle;line-height:1.38}.invoice-table th{font-weight:700;text-align:left;background:#fff;padding-top:3.3mm;padding-bottom:3.3mm}.invoice-table th:first-child,.invoice-table td:first-child{border-left:.35mm solid #8f969e!important}.invoice-table .desc{width:57%}.invoice-table .amount{width:17%}.invoice-table .totalcol{width:17%}.invoice-table .vat{width:9%;text-align:center}.invoice-table .num{text-align:left;white-space:nowrap}.invoice-table thead{display:table-header-group}.invoice-table tbody{display:table-row-group}.invoice-table tr{break-inside:avoid;page-break-inside:avoid}.pdf-summary{break-inside:avoid;page-break-inside:avoid}.pdf-summary{margin-top:11mm;display:grid;grid-template-columns:1fr 27mm 38mm;column-gap:4mm;row-gap:1.6mm;align-items:baseline}.pdf-summary .label{grid-column:1}.pdf-summary .base{text-align:right;white-space:nowrap}.pdf-summary .value{text-align:left;white-space:nowrap}.pdf-summary .strong{font-weight:700}.pdf-summary .big{font-weight:800;font-size:12pt}.pdf-note{margin:10mm 0 0;font-size:12pt;max-width:177mm;break-inside:avoid;page-break-inside:avoid}.pdf-note strong{font-weight:700}.invoice-footer{position:static;margin-top:24mm;padding-top:3mm;display:grid;grid-template-columns:1fr 1.35fr 1.55fr;gap:7mm;font-size:12pt;font-weight:700;break-inside:avoid;page-break-inside:avoid}.invoice-footer div{white-space:nowrap}
+
+.arrangement-grid{display:grid;gap:14px}.arrangement-card{border:1px solid var(--line);border-radius:12px;padding:15px;background:#fff}.arrangement-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.arrangement-head h3{margin:0 0 4px}.arrangement-meta{color:#64748b;font-size:13px}.term-history{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}.term-chip{border:1px solid #cbd5e1;border-radius:9px;padding:9px;text-align:center;font-weight:700;background:#f8fafc}.term-chip.done{background:#ecfdf5;border-color:#86efac;color:#166534}.term-chip.next{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}.arrangement-actions{display:flex;gap:8px;flex-wrap:wrap}.breakdown-row{display:grid;grid-template-columns:2fr 1fr 110px auto;gap:9px;align-items:end;border-top:1px solid #e5e7eb;padding:10px 0}.breakdown-row:first-child{border-top:0}.small-note{font-size:12px;color:#64748b}
+.payment-choice-block{grid-column:1/-1}.payment-choice-title{font-weight:800;font-size:17px;margin-bottom:10px}.payment-choice-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.payment-choice{background:#fff;color:#0f172a;border:2px solid #cbd5e1;text-align:left;display:flex;flex-direction:column;gap:4px;min-height:78px}.payment-choice strong{font-size:16px}.payment-choice span{font-size:12px;color:#64748b;font-weight:600}.payment-choice.active{border-color:var(--brand);background:#ecfdf5;box-shadow:0 0 0 2px #99f6e4}.payment-choice.custom-choice{grid-column:1/-1;min-height:auto}.notice{padding:14px;border-radius:10px;background:#eff6ff;border:1px solid #93c5fd;font-size:16px;line-height:1.7}.notice strong{font-size:18px}.version-warning{margin:0 0 14px;padding:14px 16px;border-radius:10px;background:#ecfdf5;border:2px solid #34d399;font-weight:700;color:#065f46}.split-step{background:#fff;border:2px solid #0f766e;border-radius:12px;padding:14px;margin:12px 0}.split-step h3{margin:0 0 10px;font-size:18px}.calculation-title{margin-top:18px;font-size:18px;font-weight:800}
+@media(max-width:900px){.payment-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.term-history{grid-template-columns:repeat(2,minmax(0,1fr))}.breakdown-row{grid-template-columns:1fr 1fr}.breakdown-desc{grid-column:1/-1}.invoice-line{grid-template-columns:repeat(2,minmax(0,1fr))}.description-field{grid-column:1/-1}.grid.two{grid-template-columns:1fr}.totals{grid-template-columns:1fr 130px}.dialog-toolbar{justify-content:center}.invoice-paper{transform-origin:top center;transform:scale(calc((100vw - 22px) / 793.7));margin-bottom:calc(-297mm + (297mm * ((100vw - 22px) / 793.7)));}}
+@media(max-width:430px){dialog{width:100vw;border-radius:0}.invoice-paper{transform:scale(calc((100vw - 12px) / 793.7));margin-top:6px;margin-bottom:calc(-297mm + (297mm * ((100vw - 12px) / 793.7)));}}
+@page{size:A4 portrait;margin:0}
+@media print{
+  html,body{width:210mm!important;height:auto!important;margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}
+  body>*:not(dialog){display:none!important}
+  dialog{display:block!important;position:static!important;width:210mm!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:#fff!important;overflow:visible!important}
+  dialog::backdrop{display:none!important}
+  .dialog-toolbar{display:none!important}
+  .invoice-paper{transform:none!important;position:relative!important;width:210mm!important;height:auto!important;min-height:297mm!important;margin:0!important;padding:10mm 10mm 9mm 15mm!important;box-shadow:none!important;overflow:visible!important}
+  .invoice-table{page-break-inside:auto!important}
+  .invoice-table thead{display:table-header-group!important}
+  .invoice-table tr{page-break-inside:avoid!important;break-inside:avoid!important}
+  .pdf-summary,.pdf-note,.invoice-footer{page-break-inside:avoid!important;break-inside:avoid!important}
+}
+
+
+</style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Drive Factuur <small style="font-size:13px;font-weight:600;color:#cbd5e1">v4.6</small></h1>
+      <p>Rijschool den Hartog</p>
+    </div>
+    <button id="installBtn" class="secondary" hidden>Installeren</button>
+  </header>
+
+  <main class="app-shell">
+    <nav class="tabs" aria-label="Navigatie">
+      <button class="tab active" data-view="invoice">Nieuwe factuur</button>
+      <button class="tab" data-view="saved">Facturen</button>
+      <button class="tab" data-view="arrangements">Pakket splitsen</button>
+      <button class="tab" data-view="settings">Instellingen</button>
+    </nav>
+
+    <section id="invoiceView" class="view active">
+      <div class="panel">
+        <h2>Factuurgegevens</h2>
+        <div class="grid two">
+          <label>Factuurnummer<input id="invoiceNumber" placeholder="Bijv. 2026-005" required /></label>
+          <label>Termijn (optioneel)<input id="term" placeholder="Bijv. 2/8" /></label>
+          <label>Factuurdatum<input id="invoiceDate" type="date" /></label>
+          <label>Betaaltermijn (dagen)<input id="paymentDays" type="number" min="0" value="14" /></label>
+          <label class="full">Referentie<input id="reference" placeholder="Bijv. Rijopleiding / herexamen" /></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Klantgegevens</h2>
+        <div class="grid two">
+          <label>Naam<input id="customerName" /></label>
+          <label>Straat en huisnummer<input id="customerStreet" /></label>
+          <label>Postcode<input id="customerPostal" /></label>
+          <label>Woonplaats<input id="customerCity" /></label>
+          <label class="full">E-mailadres leerling (optioneel)<input id="customerEmail" type="email" placeholder="naam@voorbeeld.nl" /></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title-row">
+          <h2>Factuurregels</h2>
+          <div class="panel-actions"><button id="addLineBtn" type="button">+ Regel toevoegen</button><button id="toggleExamSplitBtn" class="secondary" type="button">+ Examen / TTT splitsen</button></div>
+        </div>
+        <div id="examSplit" class="exam-split">
+          <div class="grid two">
+            <label>Soort
+              <select id="examType">
+                <option>Herexamen</option><option>Praktijkexamen</option><option>Tussentijdse toets</option><option>BNOR</option><option>Overige CBR-dienst</option>
+              </select>
+            </label>
+            <label>Totaalbedrag incl. btw<input id="examTotal" inputmode="decimal" value="260,00" /></label>
+            <label>CBR-deel btw-vrij<input id="examCbr" inputmode="decimal" value="143,50" /></label>
+            <div style="align-self:end"><button id="addSplitExamBtn" type="button">Gesplitst toevoegen</button></div>
+          </div>
+          <p class="helper">De app maakt automatisch twee regels: het CBR-deel zonder btw en de rijschoolkosten met 21% btw. De bedragen op de factuur zijn inclusief btw.</p>
+        </div>
+        <p class="helper">Je kunt onbeperkt regels toevoegen. De tabel wordt automatisch langer en loopt zo nodig netjes door op een volgende A4.</p><div id="lines"></div>
+      </div>
+
+      <p class="helper">Alle prijzen die je invult zijn inclusief btw, net als op je huidige facturen.</p><div class="panel totals-panel">
+        <div class="totals">
+          <span>Subtotaal excl. btw</span><strong id="subtotal">€ 0,00</strong>
+          <span>BTW</span><strong id="vatTotal">€ 0,00</strong>
+          <span>Totaal</span><strong id="grandTotal">€ 0,00</strong>
+          <label>Reeds voldaan</label><input id="paidAmount" inputmode="decimal" value="0,00" />
+          <span class="open-label">Openstaand</span><strong class="open" id="openAmount">€ 0,00</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="saveDraftBtn" class="secondary">Concept opslaan</button>
+        <button id="saveInvoiceBtn">Factuur opslaan</button>
+        <button id="previewBtn" class="secondary">Voorbeeld</button>
+        <button id="printBtn">PDF / Afdrukken</button>
+        <button id="shareBtn">Verzenden</button>
+      </div>
+    </section>
+
+    <section id="savedView" class="view">
+      <div class="panel">
+        <div class="panel-title-row">
+          <h2>Opgeslagen facturen</h2><p class="helper">Open, kopieer of verwijder hier een opgeslagen factuur. Verwijderen is definitief.</p>
+          <div class="panel-actions"><button id="newInvoiceBtn">Nieuwe factuur</button><button id="newStandaloneCreditBtn" class="secondary">Losse creditfactuur</button></div>
+        </div>
+        <div id="savedInvoices" class="saved-list"></div>
+      </div>
+    </section>
+
+    <section id="arrangementsView" class="view">
+      <div class="panel">
+        <div class="panel-title-row">
+          <div><h2>Pakket splitsen in termijnen</h2><p class="helper">Een betaalregeling kan worden bewerkt of verwijderd. Het verwijderen van een regeling verwijdert geen bestaande facturen.</p><p class="helper">Sla per leerling het pakket, de termijnverdeling en de factuurhistorie op.</p></div>
+          <button id="newArrangementBtn">Nieuwe leerling / regeling</button>
+        </div>
+        <div class="version-warning">Drive Factuur v4.6 — Kies een pakket en druk daarna op 1, 2, 3 of 4 termijnen. De app rekent de bedragen direct uit.</div>
+        <div id="arrangementForm" class="exam-split active">
+          <div class="grid two">
+            <label>Naam leerling<input id="arrCustomerName" placeholder="Naam leerling" /></label>
+            <label>Pakket<select id="arrPackage"><option value="Pakket 40">Compleet pakket 40 – € 2.895</option><option value="Pakket 35">Basispakket 35 – € 2.650</option><option value="Eigen pakket">Eigen pakket</option></select></label>
+            <label>Straat en huisnummer<input id="arrCustomerStreet" /></label>
+            <label>Postcode<input id="arrCustomerPostal" /></label>
+            <label>Woonplaats<input id="arrCustomerCity" /></label>
+            <label>Totale pakketprijs<input id="arrTotal" inputmode="decimal" value="2895,00" /></label>
+            <div class="full payment-choice-block">
+              <div class="payment-choice-title">Hoe wil je het pakket verdelen?</div>
+              <input id="arrPaymentChoice" type="hidden" value="1" />
+              <div class="payment-choice-grid" id="paymentChoiceButtons">
+                <button type="button" class="payment-choice active" data-payment="1"><strong>1 termijn</strong><span>Volledig betalen</span></button>
+                <button type="button" class="payment-choice" data-payment="2"><strong>2 termijnen</strong><span>Automatisch gelijk verdelen</span></button>
+                <button type="button" class="payment-choice" data-payment="3"><strong>3 termijnen</strong><span>Automatisch gelijk verdelen</span></button>
+                <button type="button" class="payment-choice" data-payment="4"><strong>4 termijnen</strong><span>Automatisch gelijk verdelen</span></button>
+                <button type="button" class="payment-choice custom-choice" data-payment="custom"><strong>Aangepaste regeling</strong><span>Eerste termijn zelf bepalen</span></button>
+              </div>
+            </div>
+            <label id="customFirstWrap" class="hidden">Eerste termijn<input id="arrFirst" inputmode="decimal" value="650,00" /></label>
+            <label id="customRemainingWrap" class="hidden">Aantal resterende termijnen<input id="arrRemainingTerms" type="number" min="1" max="20" value="3" /></label>
+            <label>Volgende termijnnummer<input id="arrNextTerm" type="number" min="1" value="1" /></label>
+          </div>
+          <div class="panel-actions"><button id="calculateArrangementBtn" class="secondary" type="button">Opnieuw berekenen</button></div><p class="helper">Kies hierboven 2, 3 of 4 termijnen. De app verdeelt het pakket automatisch in gelijke bedragen en corrigeert de laatste termijn bij een afrondingsverschil.</p>
+          <div class="calculation-title">Automatische berekening</div><div id="arrCalculation" class="notice"></div>
+          <h3 id="breakdownHeading">Opbouw termijn</h3>
+          <p class="small-note">De app verdeelt het pakket over Termijn Rijopleiding, CBR Praktijkexamen en CBR TTT. Bedragen worden op centen afgerond; de laatste termijn vangt het afrondingsverschil op.</p>
+          <div id="breakdownLines"></div>
+          <div class="panel-actions"><button id="addBreakdownBtn" class="secondary" type="button">+ Onderdeel toevoegen</button><button id="saveArrangementBtn" type="button">Betaalregeling opslaan</button><button id="cancelArrangementBtn" class="secondary" type="button">Annuleren</button></div>
+        </div>
+        <div id="arrangementsList" class="arrangement-grid" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <section id="settingsView" class="view">
+      <div class="panel">
+        <h2>Bedrijfsgegevens</h2>
+        <div class="logo-settings" style="margin-bottom:16px">
+          <img id="logoPreview" class="logo-thumb hidden" alt="Bedrijfslogo" />
+          <div>
+            <label>Bedrijfslogo<input id="companyLogoFile" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+            <button id="removeLogoBtn" class="secondary" type="button" style="margin-top:8px">Logo verwijderen</button>
+            <p class="helper">PNG of JPG. Het logo wordt lokaal in deze app opgeslagen.</p>
+          </div>
+        </div>
+        <div class="grid two">
+          <label>Bedrijfsnaam<input id="companyName" /></label>
+          <label>Contactpersoon<input id="companyContact" /></label>
+          <label>Straat en huisnummer<input id="companyStreet" /></label>
+          <label>Postcode en plaats<input id="companyCity" /></label>
+          <label>Telefoon<input id="companyPhone" /></label>
+          <label>E-mail<input id="companyEmail" /></label>
+          <label>Website<input id="companyWebsite" /></label>
+          <label>KvK<input id="companyKvk" /></label>
+          <label>BTW-nummer<input id="companyVat" /></label>
+          <label>IBAN<input id="companyIban" /></label>
+        </div>
+        <button id="saveSettingsBtn">Instellingen opslaan</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="previewDialog">
+    <div class="dialog-toolbar">
+      <button id="closePreviewBtn" class="secondary">Sluiten</button>
+      <button id="printPreviewBtn">PDF / Afdrukken</button>
+      <button id="sharePreviewBtn">Verzenden</button>
+    </div>
+    <div id="invoicePreview" class="invoice-paper"></div>
+  </dialog>
+
+  <template id="lineTemplate">
+    <div class="invoice-line">
+      <label>Soort
+        <select class="line-type">
+          <option value="Termijn Rijopleiding">Termijn Rijopleiding</option>
+          <option value="Rijles">Rijles</option>
+          <option value="Praktijkexamen">Praktijkexamen</option>
+          <option value="Herexamen">Herexamen</option>
+          <option value="Tussentijdse toets">Tussentijdse toets</option>
+          <option value="CBR Praktijkexamen">CBR Praktijkexamen</option>
+          <option value="CBR TTT">CBR TTT</option>
+          <option value="CBR-kosten">CBR-kosten</option>
+          <option value="Overig">Overig</option>
+        </select>
+      </label>
+      <label>Duur
+        <select class="line-duration">
+          <option value="60 minuten">60 minuten</option>
+          <option value="90 minuten">90 minuten</option>
+          <option value="120 minuten">120 minuten</option>
+          <option value="">Niet van toepassing</option>
+        </select>
+      </label>
+      <label class="description-field">Omschrijving<input class="line-description" /></label>
+      <label>Aantal<input class="line-qty" type="number" min="0" step="1" value="1" /></label>
+      <label>Prijs per stuk<input class="line-price" inputmode="decimal" value="60,00" /></label>
+      <label>BTW
+        <select class="line-vat"><option value="21">21%</option><option value="0">0%</option></select>
+      </label>
+      <div class="line-total-wrap"><span>Totaal</span><strong class="line-total">€ 60,00</strong></div>
+      <button class="danger remove-line" type="button">Verwijderen</button>
+    </div>
+  </template>
+
+  <template id="breakdownTemplate">
+    <div class="breakdown-row">
+      <label class="breakdown-desc">Omschrijving<input class="bd-description" value="Termijn Rijopleiding" /></label>
+      <label>Bedrag<input class="bd-amount" inputmode="decimal" value="0,00" /></label>
+      <label>BTW<select class="bd-vat"><option value="21">21%</option><option value="0">0%</option></select></label>
+      <button class="danger bd-remove" type="button">Verwijderen</button>
+    </div>
+  </template>
+
+  <script>
+const $ = (id) => document.getElementById(id);
+const money = new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'});
+const STORAGE_INVOICES='driveinvoice.invoices.v1';
+const STORAGE_SETTINGS='drivefactuur.settings.v2';
+const STORAGE_ARRANGEMENTS='drivefactuur.arrangements.v1';
+let editingId=null;
+let editingDocumentType='invoice';
+let editingArrangementId=null;
+
+function parseAmount(v){
+  if(typeof v==='number') return Number.isFinite(v)?v:0;
+  const cleaned=String(v??'').trim().replace(/\s/g,'').replace(/\./g,'').replace(',','.').replace(/[^0-9.-]/g,'');
+  const n=Number(cleaned); return Number.isFinite(n)?n:0;
+}
+function dateNL(v){if(!v)return ''; const [y,m,d]=v.split('-'); return `${d}-${m}-${y}`}
+function today(){return new Date().toISOString().slice(0,10)}
+function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())}
+function loadJSON(k,fallback){try{return JSON.parse(localStorage.getItem(k))??fallback}catch{return fallback}}
+function saveJSON(k,v){localStorage.setItem(k,JSON.stringify(v))}
+
+const defaultSettings={companyName:'Rijschool den Hartog',companyContact:'',companyStreet:'',companyCity:'',companyPhone:'',companyEmail:'',companyWebsite:'www.rijschooldenhartog.nl',companyKvk:'',companyVat:'',companyIban:'',companyLogo:''};
+
+function addLine(data={}){
+  const node=$('lineTemplate').content.firstElementChild.cloneNode(true);
+  node.querySelector('.line-type').value=data.type??'Rijles';
+  node.querySelector('.line-duration').value=data.duration??'60 minuten';
+  node.querySelector('.line-description').value=data.description??'';
+  node.querySelector('.line-qty').value=data.qty??1;
+  node.querySelector('.line-price').value=(data.price??60).toFixed(2).replace('.',',');
+  node.querySelector('.line-vat').value=String(data.vat??21);
+  node.querySelector('.remove-line').onclick=()=>{node.remove(); if(!$('lines').children.length)addLine(); calculate()};
+  node.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{syncDescription(node);calculate()}));
+  $('lines').appendChild(node); syncDescription(node); calculate();
+}
+function syncDescription(line){
+  const desc=line.querySelector('.line-description');
+  if(desc.dataset.manual==='1')return;
+  const type=line.querySelector('.line-type').value,duration=line.querySelector('.line-duration').value;
+  desc.value=type==='Rijles'?`Rijles ${duration}`:type;
+  if(type!=='Rijles') line.querySelector('.line-duration').value='';
+  if(type.startsWith('CBR ')) line.querySelector('.line-vat').value='0';
+  desc.oninput=()=>desc.dataset.manual='1';
+}
+function collectLines(){return [...document.querySelectorAll('.invoice-line')].map(line=>({
+  type:line.querySelector('.line-type').value,duration:line.querySelector('.line-duration').value,description:line.querySelector('.line-description').value.trim(),qty:Number(line.querySelector('.line-qty').value)||0,price:parseAmount(line.querySelector('.line-price').value),vat:Number(line.querySelector('.line-vat').value)||0
+}));}
+function calculate(){
+  let subtotal=0,vatTotal=0,grand=0;
+  document.querySelectorAll('.invoice-line').forEach(line=>{
+    const qty=Number(line.querySelector('.line-qty').value)||0,price=parseAmount(line.querySelector('.line-price').value),vat=Number(line.querySelector('.line-vat').value)||0;
+    const total=qty*price;
+    const lineVat=vat>0 ? total-(total/(1+vat/100)) : 0;
+    grand+=total; vatTotal+=lineVat; subtotal+=total-lineVat;
+    line.querySelector('.line-total').textContent=money.format(total);
+  });
+  const paid=parseAmount($('paidAmount').value),open=Math.max(0,grand-paid);
+  $('subtotal').textContent=money.format(subtotal); $('vatTotal').textContent=money.format(vatTotal); $('grandTotal').textContent=money.format(grand); $('openAmount').textContent=money.format(open);
+  return{subtotal,vatTotal,grand,paid,open};
+}
+function collectInvoice(status='invoice'){
+  const totals=calculate(); return {id:editingId??uid(),status,documentType:editingDocumentType,createdAt:new Date().toISOString(),invoiceNumber:$('invoiceNumber').value.trim(),term:$('term').value.trim(),invoiceDate:$('invoiceDate').value,paymentDays:Number($('paymentDays').value)||0,reference:$('reference').value.trim(),customer:{name:$('customerName').value.trim(),street:$('customerStreet').value.trim(),postal:$('customerPostal').value.trim(),city:$('customerCity').value.trim(),email:$('customerEmail').value.trim()},lines:collectLines(),paid:totals.paid,...totals};
+}
+function validateInvoice(inv){if(!inv.invoiceNumber)return 'Vul een factuurnummer in.'; if(!inv.customer.name)return 'Vul de naam van de leerling in.'; if(!inv.lines.length)return 'Voeg minimaal één factuurregel toe.'; return ''}
+function saveInvoice(status){
+  const inv=collectInvoice(status),error=validateInvoice(inv); if(error){alert(error);return}
+  const all=loadJSON(STORAGE_INVOICES,[]),idx=all.findIndex(x=>x.id===inv.id); if(idx>=0)all[idx]=inv;else all.unshift(inv); saveJSON(STORAGE_INVOICES,all); editingId=inv.id; renderSaved(); alert(status==='draft'?'Concept opgeslagen.':(inv.documentType==='credit'?'Creditfactuur opgeslagen.':'Factuur opgeslagen.'));
+}
+function clearForm(){editingId=null;editingDocumentType='invoice'; ['invoiceNumber','term','reference','customerName','customerStreet','customerPostal','customerCity','customerEmail'].forEach(id=>$(id).value=''); $('invoiceDate').value=today(); $('paymentDays').value=14; $('paidAmount').value='0,00'; $('lines').innerHTML=''; addLine();calculate()}
+function loadInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);if(!inv)return;editingId=id;editingDocumentType=inv.documentType||'invoice';$('invoiceNumber').value=inv.invoiceNumber;$('term').value=inv.term;$('invoiceDate').value=inv.invoiceDate;$('paymentDays').value=inv.paymentDays;$('reference').value=inv.reference;$('customerName').value=inv.customer.name;$('customerStreet').value=inv.customer.street;$('customerPostal').value=inv.customer.postal;$('customerCity').value=inv.customer.city;$('customerEmail').value=inv.customer.email||'';$('paidAmount').value=(inv.paid||0).toFixed(2).replace('.',',');$('lines').innerHTML='';inv.lines.forEach(addLine);showView('invoice');calculate()}
+function duplicateInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);if(!inv)return;loadInvoice(id);editingId=null;editingDocumentType='invoice';$('invoiceNumber').value='';$('invoiceDate').value=today();if(inv.term&&inv.term.includes('/')){const[a,b]=inv.term.split('/').map(Number);if(a&&b&&a<b)$('term').value=`${a+1}/${b}`;}showView('invoice')}
+function newStandaloneCredit(){
+  clearForm();
+  editingId=null;
+  editingDocumentType='credit';
+  $('invoiceNumber').value='';
+  $('term').value='';
+  $('invoiceDate').value=today();
+  $('paymentDays').value=0;
+  $('reference').value='';
+  $('paidAmount').value='0,00';
+  $('lines').innerHTML='';
+  addLine({type:'Overig',duration:'',description:'Credit',qty:1,price:0,vat:21});
+  showView('invoice');
+  calculate();
+  setTimeout(()=>alert('Losse creditfactuur geopend. Vul een nieuw uniek creditfactuurnummer in en zet bij Referentie het nummer/de nummers van de oorspronkelijke factuur of facturen, bijvoorbeeld uit Plengo.'),0);
+}
+function creditInvoice(id){
+  const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);
+  if(!inv)return;
+  editingId=null;
+  editingDocumentType='credit';
+  $('invoiceNumber').value='';
+  $('term').value='';
+  $('invoiceDate').value=today();
+  $('paymentDays').value=0;
+  $('reference').value=`Credit op factuur ${inv.invoiceNumber}`;
+  $('customerName').value=inv.customer?.name||'';
+  $('customerStreet').value=inv.customer?.street||'';
+  $('customerPostal').value=inv.customer?.postal||'';
+  $('customerCity').value=inv.customer?.city||'';
+  $('customerEmail').value=inv.customer?.email||'';
+  $('paidAmount').value='0,00';
+  $('lines').innerHTML='';
+  // Neem de oorspronkelijke regels over als startpunt. Pas aantallen/bedragen aan
+  // en verwijder regels die niet gecrediteerd hoeven te worden.
+  (inv.lines||[]).forEach(l=>addLine({...l}));
+  if(!(inv.lines||[]).length)addLine({type:'Overig',duration:'',description:'Credit',qty:1,price:0,vat:21});
+  showView('invoice');
+  calculate();
+  setTimeout(()=>alert('Creditfactuur geopend. Geef deze een nieuw creditfactuurnummer en pas de regels aan. De referentie naar de oorspronkelijke factuur is al ingevuld.'),0);
+}
+function deleteInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);const label=inv?`factuur ${inv.invoiceNumber} van ${inv.customer?.name||'deze leerling'}`:'deze factuur';if(!confirm(`Weet je zeker dat je ${label} definitief wilt verwijderen?`))return;saveJSON(STORAGE_INVOICES,loadJSON(STORAGE_INVOICES,[]).filter(x=>x.id!==id));if(editingId===id){editingId=null}renderSaved();alert('Factuur verwijderd.')}
+function renderSaved(){const root=$('savedInvoices'),all=loadJSON(STORAGE_INVOICES,[]);root.innerHTML='';if(!all.length){root.innerHTML='<p>Nog geen facturen opgeslagen.</p>';return}all.forEach(inv=>{const isCredit=inv.documentType==='credit';const c=document.createElement('div');c.className='saved-card';c.innerHTML=`<div><strong>${inv.invoiceNumber} — ${inv.customer.name}</strong><small>${dateNL(inv.invoiceDate)} · ${inv.status==='draft'?'Concept':(isCredit?'Creditfactuur':'Factuur')} · ${money.format(inv.grand)}</small></div><div class="saved-actions"><button data-a="open" class="secondary">Openen</button><button data-a="copy" class="secondary">Kopiëren</button>${!isCredit?'<button data-a="credit" class="secondary">Credit maken</button>':''}<button data-a="delete" class="danger">Verwijderen</button></div>`;c.querySelector('[data-a=open]').onclick=()=>loadInvoice(inv.id);c.querySelector('[data-a=copy]').onclick=()=>duplicateInvoice(inv.id);const creditBtn=c.querySelector('[data-a=credit]');if(creditBtn)creditBtn.onclick=()=>creditInvoice(inv.id);c.querySelector('[data-a=delete]').onclick=()=>deleteInvoice(inv.id);root.appendChild(c)})}
+function getSettings(){return {...defaultSettings,...loadJSON(STORAGE_SETTINGS,{})}}
+function loadSettings(){const s=getSettings();Object.keys(s).forEach(k=>{const el=$(k);if(el&&el.type!=='file')el.value=s[k]});updateLogoPreview(s.companyLogo)}
+function saveSettings(){const current=getSettings(),s={};Object.keys(defaultSettings).forEach(k=>{const el=$(k);s[k]=el&&el.type!=='file'?el.value.trim():current[k]});saveJSON(STORAGE_SETTINGS,s);alert('Instellingen opgeslagen.')}
+function updateLogoPreview(data){const img=$('logoPreview');if(data){img.src=data;img.classList.remove('hidden')}else{img.removeAttribute('src');img.classList.add('hidden')}}
+function saveLogoFile(file){if(!file)return;if(file.size>2*1024*1024){alert('Kies een logo kleiner dan 2 MB.');return}const reader=new FileReader();reader.onload=()=>{const s=getSettings();s.companyLogo=String(reader.result);saveJSON(STORAGE_SETTINGS,s);updateLogoPreview(s.companyLogo);alert('Logo opgeslagen.')};reader.readAsDataURL(file)}
+function invoiceDateDots(v){if(!v)return '';const [y,m,d]=v.split('-');return `${d}.${m}.${y}`}
+function previewHTML(inv){
+  const s=getSettings();
+  const lines=inv.lines.map(l=>{
+    const qty=Number(l.qty)||0;
+    const description=(qty>1?`${qty}x `:'')+escapeHTML(l.description);
+    return `<tr><td class="desc">${description}</td><td class="amount">${money.format(l.price)}</td><td class="totalcol">${money.format(qty*l.price)}</td><td class="vat">${l.vat?`${l.vat}%`:'-'}</td></tr>`;
+  }).join('');
+  const vatBase=inv.lines.filter(l=>Number(l.vat)>0).reduce((sum,l)=>sum+((Number(l.qty)||0)*Number(l.price||0)/(1+Number(l.vat)/100)),0);
+  const logo=s.companyLogo?`<img class="invoice-logo" src="${s.companyLogo}" alt="Logo">`:`<div class="brand-title">${escapeHTML(s.companyName)}</div>`;
+  return `<div class="pdf-header"><div class="pdf-logo-box">${logo}</div><div class="pdf-company"><p>${escapeHTML(s.companyName)}<br>${escapeHTML(s.companyStreet)}<br>${escapeHTML(s.companyCity)}<br>${escapeHTML(s.companyPhone)}</p><p class="right">${escapeHTML(s.companyEmail)}<br>${escapeHTML(s.companyWebsite)}</p></div></div>
+  <div class="pdf-party-row"><div class="pdf-customer"><p class="name">${escapeHTML(inv.customer.name)}</p><p>${escapeHTML(inv.customer.street)}<br>${escapeHTML(inv.customer.postal)}<br>${escapeHTML(inv.customer.city)}</p></div><div class="pdf-meta"><span class="headline">${inv.documentType==='credit'?'CREDITFACTUUR':'Factuur'}: ${escapeHTML(inv.invoiceNumber)}</span><span class="term-head">${inv.term?`Termijn ${escapeHTML(inv.term)}`:''}</span><span>${inv.documentType==='credit'?'Creditdatum:':'Factuurdatum:'}</span><span>${invoiceDateDots(inv.invoiceDate)}</span><span>Betaaltermijn:</span><span>${inv.paymentDays} dagen</span><span>Referentie:</span><span>${escapeHTML(inv.reference||inv.customer.name||'-')}</span></div></div>
+  <table class="invoice-table"><thead><tr><th class="desc">Omschrijving</th><th class="amount">Bedrag</th><th class="totalcol">Totaal</th><th class="vat">Btw</th></tr></thead><tbody>${lines}</tbody></table>
+  <div class="pdf-summary"><span class="label">Subtotaal excl. btw</span><span class="base"></span><strong class="value">${money.format(inv.subtotal)}</strong><span class="label">21% btw over</span><span class="base">${money.format(vatBase)}</span><strong class="value">${money.format(inv.vatTotal)}</strong><strong class="label big">Totaal</strong><span class="base"></span><strong class="value big">${money.format(inv.grand)}</strong><span class="label">Reeds voldaan</span><span class="base"></span><span class="value">${money.format(inv.paid)}</span><strong class="label big">Openstaand</strong><span class="base"></span><strong class="value big">${money.format(inv.open)}</strong></div>
+  <p class="pdf-note">${inv.documentType==='credit'?`Dit bedrag wordt aan u terugbetaald/verrekend. Referentie: <strong>${escapeHTML(inv.reference||inv.invoiceNumber)}</strong>`:`Wij verzoeken u vriendelijk het openstaande bedrag binnen ${inv.paymentDays} dagen na factuurdatum over te maken onder vermelding van <strong>factuurnummer ${escapeHTML(inv.invoiceNumber)}</strong>`}</p>
+  <div class="invoice-footer"><div>KVK:${escapeHTML(s.companyKvk)}</div><div>BTW-ID:${escapeHTML(s.companyVat)}</div><div>BANK:${escapeHTML(s.companyIban)}</div></div>`
+}
+
+
+const PACKAGE_DATA={
+  'Pakket 40':{total:2895,label:'Compleet pakket 40',lessons:40,cbrExam:143.50,cbrTtt:143.50},
+  'Pakket 35':{total:2650,label:'Basispakket 35',lessons:35,cbrExam:143.50,cbrTtt:143.50}
+};
+function cents(n){return Math.round((Number(n)||0)*100)}
+function fromCents(n){return n/100}
+function distributeCents(totalCents,count){const base=Math.floor(totalCents/count),remainder=totalCents-base*count;return Array.from({length:count},(_,i)=>base+(i>=count-remainder?1:0))}
+function packageSchedule(total,termAmounts){
+  const totalC=cents(total),examC=Math.min(cents(143.50),totalC),tttC=Math.min(cents(143.50),Math.max(0,totalC-examC)),taxC=totalC-examC-tttC;
+  const amounts=termAmounts.map(cents),sum=amounts.reduce((a,b)=>a+b,0);if(sum!==totalC)amounts[amounts.length-1]+=totalC-sum;
+  let taxLeft=taxC,examLeft=examC,tttLeft=tttC,totalLeft=totalC;
+  return amounts.map((amount,i)=>{
+    const last=i===amounts.length-1;let tax,exam,ttt;
+    if(last){tax=taxLeft;exam=examLeft;ttt=tttLeft}else{
+      tax=Math.round(amount*taxC/totalC);exam=Math.round(amount*examC/totalC);ttt=amount-tax-exam;
+      tax=Math.min(Math.max(0,tax),taxLeft);exam=Math.min(Math.max(0,exam),examLeft);ttt=Math.min(Math.max(0,ttt),tttLeft);
+      const diff=amount-tax-exam-ttt;tax+=diff;
+    }
+    taxLeft-=tax;examLeft-=exam;tttLeft-=ttt;totalLeft-=amount;
+    return {amount:fromCents(amount),lines:[{description:'Termijn Rijopleiding',amount:fromCents(tax),vat:21},{description:'CBR Praktijkexamen',amount:fromCents(exam),vat:0},{description:'CBR TTT',amount:fromCents(ttt),vat:0}].filter(x=>x.amount>0)};
+  });
+}
+function getArrangementPlan(){
+  const total=parseAmount($('arrTotal').value),choice=$('arrPaymentChoice').value,mode=choice==='custom'?'custom':'equal';
+  if(total<=0)return null;
+  let termAmounts=[];
+  if(mode==='equal'){
+    const count=Math.max(1,Math.min(4,Number(choice)||1));termAmounts=distributeCents(cents(total),count).map(fromCents);
+  }else{
+    const first=parseAmount($('arrFirst').value),remaining=Math.max(1,Number($('arrRemainingTerms').value)||1);if(first<=0||first>=total)return null;
+    termAmounts=[first,...distributeCents(cents(total-first),remaining).map(fromCents)];
+  }
+  return {mode,total,termAmounts,schedule:packageSchedule(total,termAmounts)};
+}
+function updateArrangementUI(){
+  const choice=$('arrPaymentChoice').value,custom=choice==='custom';document.querySelectorAll('.payment-choice').forEach(b=>b.classList.toggle('active',b.dataset.payment===choice));$('customFirstWrap').classList.toggle('hidden',!custom);$('customRemainingWrap').classList.toggle('hidden',!custom);calculateArrangement();
+}
+function calculateArrangement(){
+  const plan=getArrangementPlan(),box=$('arrCalculation');if(!plan){box.textContent='Controleer de pakketprijs en de gekozen regeling.';return}
+  box.innerHTML=`<strong>${plan.termAmounts.length} termijn${plan.termAmounts.length===1?'':'en'}</strong><br>${plan.termAmounts.map((x,i)=>`${i+1}/${plan.termAmounts.length}: ${money.format(x)}`).join(' · ')}`;
+  $('breakdownLines').innerHTML='';(plan.schedule[0]?.lines||[]).forEach(addBreakdownLine);
+}
+function addBreakdownLine(data={}){
+  const node=$('breakdownTemplate').content.firstElementChild.cloneNode(true);
+  node.querySelector('.bd-description').value=data.description??'Termijn Rijopleiding';
+  node.querySelector('.bd-amount').value=(data.amount??0).toFixed(2).replace('.',',');
+  node.querySelector('.bd-vat').value=String(data.vat??21);
+  node.querySelector('.bd-remove').onclick=()=>{node.remove()};
+  $('breakdownLines').appendChild(node);
+}
+function defaultBreakdown(){
+  $('breakdownLines').innerHTML='';
+  addBreakdownLine({description:'Termijn Rijopleiding',amount:295.37,vat:21});
+  addBreakdownLine({description:'CBR Praktijkexamen',amount:16.25,vat:0});
+  addBreakdownLine({description:'CBR TTT',amount:16.24,vat:0});
+}
+function collectBreakdown(){return [...document.querySelectorAll('.breakdown-row')].map(r=>({description:r.querySelector('.bd-description').value.trim(),amount:parseAmount(r.querySelector('.bd-amount').value),vat:Number(r.querySelector('.bd-vat').value)||0})).filter(x=>x.description)}
+function clearArrangementForm(){editingArrangementId=null;['arrCustomerName','arrCustomerStreet','arrCustomerPostal','arrCustomerCity'].forEach(id=>$(id).value='');$('arrPackage').value='Pakket 40';$('arrTotal').value='2895,00';$('arrPaymentChoice').value='1';$('arrFirst').value='650,00';$('arrRemainingTerms').value=3;$('arrNextTerm').value=1;updateArrangementUI()}
+function saveArrangement(){
+  const plan=getArrangementPlan();if(!plan){alert('Controleer de betaalregeling.');return}
+  const a={id:editingArrangementId??uid(),customer:{name:$('arrCustomerName').value.trim(),street:$('arrCustomerStreet').value.trim(),postal:$('arrCustomerPostal').value.trim(),city:$('arrCustomerCity').value.trim()},package:$('arrPackage').value,total:plan.total,mode:plan.mode,terms:plan.termAmounts.length,first:plan.termAmounts[0],follow:plan.termAmounts[1]??plan.termAmounts[0],termAmounts:plan.termAmounts,schedule:plan.schedule,nextTerm:Number($('arrNextTerm').value)||1,breakdown:plan.schedule[1]?.lines||plan.schedule[0]?.lines||[],updatedAt:new Date().toISOString()};
+  if(!a.customer.name){alert('Vul de naam van de leerling in.');return}
+  const all=loadJSON(STORAGE_ARRANGEMENTS,[]),i=all.findIndex(x=>x.id===a.id);if(i>=0)all[i]=a;else all.unshift(a);saveJSON(STORAGE_ARRANGEMENTS,all);renderArrangements();alert('Betaalregeling opgeslagen. Je kunt hieronder direct een volgende regeling maken.');clearArrangementForm();$('arrangementForm').classList.add('active')
+}
+function arrangementInvoices(a){return loadJSON(STORAGE_INVOICES,[]).filter(i=>i.customer?.name?.trim().toLowerCase()===a.customer.name.trim().toLowerCase()&&i.term)}
+function paidTermNumbers(a){return new Set(arrangementInvoices(a).map(i=>Number(String(i.term).split('/')[0])).filter(Boolean))}
+function normalizedSchedule(a){
+  if(Array.isArray(a.schedule)&&a.schedule.length)return a.schedule;
+  const amounts=Array.isArray(a.termAmounts)&&a.termAmounts.length?a.termAmounts:[a.first,...Array.from({length:Math.max(0,(a.terms||1)-1)},()=>a.follow)];
+  return packageSchedule(a.total||amounts.reduce((x,y)=>x+y,0),amounts);
+}
+function renderArrangements(){
+  const root=$('arrangementsList'),all=loadJSON(STORAGE_ARRANGEMENTS,[]);root.innerHTML='';if(!all.length){root.innerHTML='<p>Nog geen betaalregelingen opgeslagen.</p>';return}
+  all.forEach(a=>{const done=paidTermNumbers(a),schedule=normalizedSchedule(a),terms=schedule.length||a.terms||1,next=Math.min(Math.max(Number(a.nextTerm)||1,1),terms);const chips=Array.from({length:terms},(_,i)=>{const n=i+1;return `<div class="term-chip ${done.has(n)?'done':n===next?'next':''}">${done.has(n)?'✓':'○'} ${n}/${terms}</div>`}).join('');const c=document.createElement('div');c.className='arrangement-card';c.innerHTML=`<div class="arrangement-head"><div><h3>${escapeHTML(a.customer.name)}</h3><div class="arrangement-meta">${escapeHTML(a.package)} · ${money.format(a.total)} · ${terms} termijn${terms===1?'':'en'}</div></div><strong>Volgende: ${next}/${terms}</strong></div><div class="term-history">${chips}</div><div class="arrangement-actions"><button data-a="make">Maak termijn ${next}/${terms}</button><button data-a="edit" class="secondary">Bewerken</button><button data-a="delete" class="danger">Verwijderen</button></div>`;c.querySelector('[data-a=make]').onclick=()=>makeTermInvoice(a.id);c.querySelector('[data-a=edit]').onclick=()=>editArrangement(a.id);c.querySelector('[data-a=delete]').onclick=()=>deleteArrangement(a.id);root.appendChild(c)})
+}
+function editArrangement(id){const a=loadJSON(STORAGE_ARRANGEMENTS,[]).find(x=>x.id===id);if(!a)return;editingArrangementId=id;$('arrCustomerName').value=a.customer.name;$('arrCustomerStreet').value=a.customer.street;$('arrCustomerPostal').value=a.customer.postal;$('arrCustomerCity').value=a.customer.city;$('arrPackage').value=a.package;$('arrTotal').value=Number(a.total).toFixed(2).replace('.',',');const schedule=normalizedSchedule(a);$('arrPaymentChoice').value=(a.mode||'custom')==='equal'?String(Math.min(4,schedule.length)):'custom';if((a.mode||'custom')!=='equal'){$('arrFirst').value=Number(schedule[0]?.amount||a.first||0).toFixed(2).replace('.',',');$('arrRemainingTerms').value=Math.max(1,schedule.length-1)}$('arrNextTerm').value=a.nextTerm||1;updateArrangementUI();$('arrangementForm').classList.add('active')}
+function deleteArrangement(id){const a=loadJSON(STORAGE_ARRANGEMENTS,[]).find(x=>x.id===id);const label=a?`de betaalregeling van ${a.customer?.name||'deze leerling'}`:'deze betaalregeling';if(!confirm(`Weet je zeker dat je ${label} definitief wilt verwijderen? De eerder opgeslagen facturen blijven behouden.`))return;saveJSON(STORAGE_ARRANGEMENTS,loadJSON(STORAGE_ARRANGEMENTS,[]).filter(x=>x.id!==id));if(editingArrangementId===id){editingArrangementId=null;$('arrangementForm').classList.remove('active')}renderArrangements();alert('Betaalregeling verwijderd.')}
+function makeTermInvoice(id){const all=loadJSON(STORAGE_ARRANGEMENTS,[]),a=all.find(x=>x.id===id);if(!a)return;const schedule=normalizedSchedule(a),terms=schedule.length,n=Math.min(Math.max(Number(a.nextTerm)||1,1),terms),termData=schedule[n-1];clearForm();$('customerName').value=a.customer.name;$('customerStreet').value=a.customer.street;$('customerPostal').value=a.customer.postal;$('customerCity').value=a.customer.city;$('term').value=`${n}/${terms}`;$('reference').value=a.package;$('lines').innerHTML='';termData.lines.forEach(b=>addLine({type:b.description.startsWith('CBR ')?b.description:'Termijn Rijopleiding',duration:'',description:b.description,qty:1,price:b.amount,vat:b.vat}));a.nextTerm=Math.min(terms,n+1);saveJSON(STORAGE_ARRANGEMENTS,all);showView('invoice');calculate();alert(`Termijn ${n}/${terms} is klaargezet. Vul alleen nog het factuurnummer in.`)}
+
+
+
+function concatBytes(parts){
+  const total=parts.reduce((n,p)=>n+p.length,0),out=new Uint8Array(total);let offset=0;
+  for(const p of parts){out.set(p,offset);offset+=p.length}return out;
+}
+function asciiBytes(s){return new TextEncoder().encode(s)}
+function jpegToPdfBlob(jpegBytes,width,height){
+  const pageW=595.28,pageH=841.89;
+  const objects=[];
+  objects[1]=asciiBytes('<< /Type /Catalog /Pages 2 0 R >>');
+  objects[2]=asciiBytes('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  objects[3]=asciiBytes(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`);
+  const content=asciiBytes(`q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`);
+  objects[4]=concatBytes([asciiBytes(`<< /Length ${content.length} >>\nstream\n`),content,asciiBytes('endstream')]);
+  objects[5]=concatBytes([asciiBytes(`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`),jpegBytes,asciiBytes('\nendstream')]);
+  const header=asciiBytes('%PDF-1.4\n%âãÏÓ\n'),parts=[header],offsets=[0];let pos=header.length;
+  for(let i=1;i<=5;i++){offsets[i]=pos;const obj=concatBytes([asciiBytes(`${i} 0 obj\n`),objects[i],asciiBytes('\nendobj\n')]);parts.push(obj);pos+=obj.length}
+  const xrefPos=pos;let xref='xref\n0 6\n0000000000 65535 f \n';
+  for(let i=1;i<=5;i++)xref+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+  const trailer=asciiBytes(xref+`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`);parts.push(trailer);
+  return new Blob(parts,{type:'application/pdf'});
+}
+async function elementToPdfBlob(element){
+  if(document.fonts?.ready)await document.fonts.ready;
+  const css=[...document.querySelectorAll('style')].map(s=>s.textContent).join('\n')+`\n.invoice-paper{width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:10mm 10mm 9mm 15mm!important;box-shadow:none!important;transform:none!important;overflow:hidden!important;background:#fff!important}`;
+  const clone=element.cloneNode(true);clone.style.transform='none';clone.style.margin='0';clone.style.boxShadow='none';
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="794" height="1123"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css.replace(/<\/style/gi,'<\\/style')}</style>${clone.outerHTML}</div></foreignObject></svg>`;
+  const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob),img=new Image();
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url});
+  const canvas=document.createElement('canvas');canvas.width=1588;canvas.height=2246;const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);URL.revokeObjectURL(url);
+  const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('PDF kon niet worden gemaakt.')),'image/jpeg',0.96));
+  return jpegToPdfBlob(new Uint8Array(await jpeg.arrayBuffer()),canvas.width,canvas.height);
+}
+async function shareInvoice(){
+  const inv=collectInvoice('invoice'),error=validateInvoice(inv);if(error){alert(error);return}
+  $('invoicePreview').innerHTML=previewHTML(inv);
+  const paper=$('invoicePreview');
+  if(paper.scrollHeight>paper.clientHeight+25){alert('Deze factuur is langer dan één A4. Gebruik voor deze factuur PDF / Afdrukken. Direct verzenden ondersteunt op dit moment één A4.');return}
+  const button=$('shareBtn');if(button)button.disabled=true;
+  try{
+    const pdf=await elementToPdfBlob(paper),safe=String(inv.invoiceNumber).replace(/[^a-z0-9_-]/gi,'-'),file=new File([pdf],`${inv.documentType==='credit'?'Creditfactuur':'Factuur'}-${safe}.pdf`,{type:'application/pdf'});
+    const shareData={title:`${inv.documentType==='credit'?'Creditfactuur':'Factuur'} ${inv.invoiceNumber} - Rijschool den Hartog`,text:`Beste ${inv.customer.name},\n\nIn de bijlage vindt u ${inv.documentType==='credit'?'creditfactuur':'factuur'} ${inv.invoiceNumber}.\n\nMet vriendelijke groet,\nRijschool den Hartog`,files:[file]};
+    if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share(shareData)}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(pdf);a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);alert('Delen wordt door deze browser niet ondersteund. De PDF is daarom gedownload.')}
+  }catch(e){if(e?.name!=='AbortError'){console.error(e);alert('Verzenden is niet gelukt. Gebruik voorlopig PDF / Afdrukken.')}}finally{if(button)button.disabled=false}
+}
+
+function escapeHTML(v){return String(v??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]))}
+function showPreview(){const inv=collectInvoice('invoice'),error=validateInvoice(inv);if(error){alert(error);return}$('invoicePreview').innerHTML=previewHTML(inv);$('previewDialog').showModal()}
+function showView(name){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));$(`${name}View`).classList.add('active');if(name==='saved')renderSaved();if(name==='settings')loadSettings();if(name==='arrangements'){renderArrangements();$('arrangementForm').classList.add('active');updateArrangementUI()}}
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.view));$('addLineBtn').onclick=()=>addLine();
+$('toggleExamSplitBtn').onclick=()=>$('examSplit').classList.toggle('active');
+$('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});addLine({type, duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});$('examSplit').classList.remove('active');calculate()};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
+$('invoiceDate').value=today();addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
+
+
+// v4.3: ruim oude PWA-caches en serviceworkers op zodat de nieuwste interface zichtbaar wordt.
+if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{})}
+if('caches' in window){caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).catch(()=>{})}
+
+let deferredPrompt;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').hidden=true};
+
+
+</script>
+</body>
+</html>
