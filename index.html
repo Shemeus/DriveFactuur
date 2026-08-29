@@ -146,7 +146,7 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
           <div><h2>Pakket splitsen in termijnen</h2><p class="helper">Een betaalregeling kan worden bewerkt of verwijderd. Het verwijderen van een regeling verwijdert geen bestaande facturen.</p><p class="helper">Sla per leerling het pakket, de termijnverdeling en de factuurhistorie op.</p></div>
           <button id="newArrangementBtn">Nieuwe leerling / regeling</button>
         </div>
-        <div class="version-warning">Drive Factuur v4.7 — Kies een pakket en druk daarna op 1, 2, 3 of 4 termijnen. De app rekent de bedragen direct uit.</div>
+        <div class="version-warning">Drive Factuur v4.8 — Kies een pakket en druk daarna op 1, 2, 3 of 4 termijnen. De app rekent de bedragen direct uit.</div>
         <div id="arrangementForm" class="exam-split active">
           <div class="grid two">
             <label>Naam leerling<input id="arrCustomerName" placeholder="Naam leerling" /></label>
@@ -540,16 +540,42 @@ function bytesToBase64(bytes){
 function utf8Base64(str){return bytesToBase64(new TextEncoder().encode(str))}
 function base64Url(str){return str.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function mimeHeader(s){return '=?UTF-8?B?'+utf8Base64(String(s))+'?='}
+function googleErrorText(err){
+  if(!err) return 'Onbekende Google-fout';
+  if(typeof err==='string') return err;
+  return err.error_description || err.error || err.message || err.type || JSON.stringify(err);
+}
 function getGmailAccessToken(){
   return new Promise((resolve,reject)=>{
-    if(!window.google?.accounts?.oauth2){reject(new Error('Google login is nog niet geladen. Probeer het over een paar seconden opnieuw.'));return}
+    if(!window.google || !google.accounts || !google.accounts.oauth2){
+      reject(new Error('Google Identity Services is nog niet geladen. Vernieuw de pagina en probeer opnieuw.'));
+      return;
+    }
+    let finished=false;
+    const doneReject=(msg)=>{
+      if(finished)return;
+      finished=true;
+      reject(new Error(msg));
+    };
     gmailTokenClient=google.accounts.oauth2.initTokenClient({
       client_id:GOOGLE_OAUTH_CLIENT_ID,
       scope:GMAIL_SCOPE,
-      callback:(resp)=>resp?.access_token?resolve(resp.access_token):reject(new Error(resp?.error||'Geen toegangstoken ontvangen.')),
-      error_callback:(err)=>reject(new Error(err?.message||err?.type||'Google-aanmelding geannuleerd.'))
+      callback:(resp)=>{
+        if(finished)return;
+        if(resp && resp.access_token){
+          finished=true;
+          resolve(resp.access_token);
+        }else{
+          doneReject('Google gaf geen toegangstoken terug: '+googleErrorText(resp));
+        }
+      },
+      error_callback:(err)=>doneReject('Google-aanmelding: '+googleErrorText(err))
     });
-    gmailTokenClient.requestAccessToken({prompt:''});
+    try{
+      gmailTokenClient.requestAccessToken({prompt:'consent'});
+    }catch(err){
+      doneReject('Google-aanmelding kon niet starten: '+googleErrorText(err));
+    }
   });
 }
 async function buildRawGmailMessage(inv,pdfBlob){
@@ -581,40 +607,69 @@ async function buildRawGmailMessage(inv,pdfBlob){
   ].join('\r\n');
   return base64Url(bytesToBase64(new TextEncoder().encode(mime)));
 }
+async function gmailApiSend(token, raw){
+  const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({raw:raw})
+  });
+  const txt=await res.text();
+  if(!res.ok){
+    let msg=txt;
+    try{
+      const j=JSON.parse(txt);
+      msg=j?.error?.message || j?.error_description || txt;
+    }catch(e){}
+    throw new Error('Gmail API '+res.status+': '+msg);
+  }
+  try{return JSON.parse(txt)}catch(e){return {ok:true}}
+}
 async function sendInvoiceViaGmail(){
   const inv=collectInvoice('invoice'),error=validateInvoice(inv);
   if(error){alert(error);return}
   if(!inv.customer.email){alert('Vul eerst het e-mailadres van de leerling in.');return}
+
   $('invoicePreview').innerHTML=previewHTML(inv);
   const paper=$('invoicePreview');
-  if(paper.scrollHeight>paper.clientHeight+25){alert('Deze factuur is langer dan één A4. Direct verzenden ondersteunt op dit moment één A4.');return}
+  if(paper.scrollHeight>paper.clientHeight+25){
+    alert('Deze factuur is langer dan één A4. Direct verzenden ondersteunt op dit moment één A4.');
+    return;
+  }
+
   const buttons=[$('gmailSendBtn'),$('gmailSendPreviewBtn')].filter(Boolean);
-  buttons.forEach(b=>b.disabled=true);
+  buttons.forEach(b=>{b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Bezig…'});
+  let stage='Google toestemming';
+
   try{
     const token=await getGmailAccessToken();
+
+    stage='PDF maken';
     const pdf=await elementToPdfBlob(paper);
+    if(!pdf || !pdf.size) throw new Error('De PDF is leeg.');
+
+    stage='E-mail opbouwen';
     const raw=await buildRawGmailMessage(inv,pdf);
-    const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({raw})
-    });
-    if(!res.ok){
-      const detail=await res.text();
-      throw new Error('Gmail API '+res.status+': '+detail.slice(0,350));
-    }
-    // Ensure invoice is locally saved and mark send metadata.
+
+    stage='Gmail verzenden';
+    await gmailApiSend(token,raw);
+
+    stage='Factuur opslaan';
     const all=loadJSON(STORAGE_INVOICES,[]);
     const now=new Date().toISOString();
     const saved={...inv,status:'invoice',sentAt:now,sentVia:'gmail'};
     const idx=all.findIndex(x=>x.id===saved.id);
     if(idx>=0) all[idx]=saved; else all.unshift(saved);
-    saveJSON(STORAGE_INVOICES,all); editingId=saved.id; renderSaved();
+    saveJSON(STORAGE_INVOICES,all);
+    editingId=saved.id;
+    renderSaved();
+
     alert(`Factuur ${inv.invoiceNumber} is verstuurd naar ${inv.customer.email} via Gmail.`);
   }catch(e){
-    console.error(e);
-    alert('Versturen via Gmail is niet gelukt. '+(e?.message||'Probeer opnieuw.'));
-  }finally{buttons.forEach(b=>b.disabled=false)}
+    console.error('DriveFactuur Gmail fout bij '+stage,e);
+    alert('Versturen via Gmail is niet gelukt bij "'+stage+'".\n\n'+googleErrorText(e));
+  }finally{
+    buttons.forEach(b=>{b.disabled=false;if(b.dataset.oldText)b.textContent=b.dataset.oldText});
+  }
 }
 
 function escapeHTML(v){return String(v??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]))}
