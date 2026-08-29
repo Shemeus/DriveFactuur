@@ -47,6 +47,7 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
 
 
 </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -125,6 +126,7 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
         <button id="previewBtn" class="secondary">Voorbeeld</button>
         <button id="printBtn">PDF / Afdrukken</button>
         <button id="shareBtn">Verzenden</button>
+          <button id="gmailSendBtn" type="button">✉️ Verstuur via Gmail</button>
       </div>
     </section>
 
@@ -144,7 +146,7 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
           <div><h2>Pakket splitsen in termijnen</h2><p class="helper">Een betaalregeling kan worden bewerkt of verwijderd. Het verwijderen van een regeling verwijdert geen bestaande facturen.</p><p class="helper">Sla per leerling het pakket, de termijnverdeling en de factuurhistorie op.</p></div>
           <button id="newArrangementBtn">Nieuwe leerling / regeling</button>
         </div>
-        <div class="version-warning">Drive Factuur v4.6 — Kies een pakket en druk daarna op 1, 2, 3 of 4 termijnen. De app rekent de bedragen direct uit.</div>
+        <div class="version-warning">Drive Factuur v4.7 — Kies een pakket en druk daarna op 1, 2, 3 of 4 termijnen. De app rekent de bedragen direct uit.</div>
         <div id="arrangementForm" class="exam-split active">
           <div class="grid two">
             <label>Naam leerling<input id="arrCustomerName" placeholder="Naam leerling" /></label>
@@ -212,6 +214,7 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
       <button id="closePreviewBtn" class="secondary">Sluiten</button>
       <button id="printPreviewBtn">PDF / Afdrukken</button>
       <button id="sharePreviewBtn">Verzenden</button>
+      <button id="gmailSendPreviewBtn" type="button">✉️ Verstuur via Gmail</button>
     </div>
     <div id="invoicePreview" class="invoice-paper"></div>
   </dialog>
@@ -372,7 +375,7 @@ function creditInvoice(id){
   setTimeout(()=>alert('Creditfactuur geopend. Geef deze een nieuw creditfactuurnummer en pas de regels aan. De referentie naar de oorspronkelijke factuur is al ingevuld.'),0);
 }
 function deleteInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);const label=inv?`factuur ${inv.invoiceNumber} van ${inv.customer?.name||'deze leerling'}`:'deze factuur';if(!confirm(`Weet je zeker dat je ${label} definitief wilt verwijderen?`))return;saveJSON(STORAGE_INVOICES,loadJSON(STORAGE_INVOICES,[]).filter(x=>x.id!==id));if(editingId===id){editingId=null}renderSaved();alert('Factuur verwijderd.')}
-function renderSaved(){const root=$('savedInvoices'),all=loadJSON(STORAGE_INVOICES,[]);root.innerHTML='';if(!all.length){root.innerHTML='<p>Nog geen facturen opgeslagen.</p>';return}all.forEach(inv=>{const isCredit=inv.documentType==='credit';const c=document.createElement('div');c.className='saved-card';c.innerHTML=`<div><strong>${inv.invoiceNumber} — ${inv.customer.name}</strong><small>${dateNL(inv.invoiceDate)} · ${inv.status==='draft'?'Concept':(isCredit?'Creditfactuur':'Factuur')} · ${money.format(inv.grand)}</small></div><div class="saved-actions"><button data-a="open" class="secondary">Openen</button><button data-a="copy" class="secondary">Kopiëren</button>${!isCredit?'<button data-a="credit" class="secondary">Credit maken</button>':''}<button data-a="delete" class="danger">Verwijderen</button></div>`;c.querySelector('[data-a=open]').onclick=()=>loadInvoice(inv.id);c.querySelector('[data-a=copy]').onclick=()=>duplicateInvoice(inv.id);const creditBtn=c.querySelector('[data-a=credit]');if(creditBtn)creditBtn.onclick=()=>creditInvoice(inv.id);c.querySelector('[data-a=delete]').onclick=()=>deleteInvoice(inv.id);root.appendChild(c)})}
+function renderSaved(){const root=$('savedInvoices'),all=loadJSON(STORAGE_INVOICES,[]);root.innerHTML='';if(!all.length){root.innerHTML='<p>Nog geen facturen opgeslagen.</p>';return}all.forEach(inv=>{const isCredit=inv.documentType==='credit';const c=document.createElement('div');c.className='saved-card';c.innerHTML=`<div><strong>${inv.invoiceNumber} — ${inv.customer.name}</strong><small>${dateNL(inv.invoiceDate)} · ${inv.status==='draft'?'Concept':(isCredit?'Creditfactuur':'Factuur')} · ${money.format(inv.grand)}${inv.sentAt?' · ✓ Gmail verstuurd':''}</small></div><div class="saved-actions"><button data-a="open" class="secondary">Openen</button><button data-a="copy" class="secondary">Kopiëren</button>${!isCredit?'<button data-a="credit" class="secondary">Credit maken</button>':''}<button data-a="delete" class="danger">Verwijderen</button></div>`;c.querySelector('[data-a=open]').onclick=()=>loadInvoice(inv.id);c.querySelector('[data-a=copy]').onclick=()=>duplicateInvoice(inv.id);const creditBtn=c.querySelector('[data-a=credit]');if(creditBtn)creditBtn.onclick=()=>creditInvoice(inv.id);c.querySelector('[data-a=delete]').onclick=()=>deleteInvoice(inv.id);root.appendChild(c)})}
 function getSettings(){return {...defaultSettings,...loadJSON(STORAGE_SETTINGS,{})}}
 function loadSettings(){const s=getSettings();Object.keys(s).forEach(k=>{const el=$(k);if(el&&el.type!=='file')el.value=s[k]});updateLogoPreview(s.companyLogo)}
 function saveSettings(){const current=getSettings(),s={};Object.keys(defaultSettings).forEach(k=>{const el=$(k);s[k]=el&&el.type!=='file'?el.value.trim():current[k]});saveJSON(STORAGE_SETTINGS,s);alert('Instellingen opgeslagen.')}
@@ -524,13 +527,103 @@ async function shareInvoice(){
   }catch(e){if(e?.name!=='AbortError'){console.error(e);alert('Verzenden is niet gelukt. Gebruik voorlopig PDF / Afdrukken.')}}finally{if(button)button.disabled=false}
 }
 
+
+const GOOGLE_OAUTH_CLIENT_ID='1003018856864-jth3fg801u2sq57o6a182c0iordtrshs.apps.googleusercontent.com';
+const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.send';
+let gmailTokenClient=null;
+
+function bytesToBase64(bytes){
+  let binary='',chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+  return btoa(binary);
+}
+function utf8Base64(str){return bytesToBase64(new TextEncoder().encode(str))}
+function base64Url(str){return str.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function mimeHeader(s){return '=?UTF-8?B?'+utf8Base64(String(s))+'?='}
+function getGmailAccessToken(){
+  return new Promise((resolve,reject)=>{
+    if(!window.google?.accounts?.oauth2){reject(new Error('Google login is nog niet geladen. Probeer het over een paar seconden opnieuw.'));return}
+    gmailTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_OAUTH_CLIENT_ID,
+      scope:GMAIL_SCOPE,
+      callback:(resp)=>resp?.access_token?resolve(resp.access_token):reject(new Error(resp?.error||'Geen toegangstoken ontvangen.')),
+      error_callback:(err)=>reject(new Error(err?.message||err?.type||'Google-aanmelding geannuleerd.'))
+    });
+    gmailTokenClient.requestAccessToken({prompt:''});
+  });
+}
+async function buildRawGmailMessage(inv,pdfBlob){
+  const boundary='drivefactuur_'+Date.now();
+  const subject=`${inv.documentType==='credit'?'Creditfactuur':'Factuur'} ${inv.invoiceNumber} - Rijschool Den Hartog`;
+  const body=`Beste ${inv.customer.name},\r\n\r\nIn de bijlage vindt u ${inv.documentType==='credit'?'creditfactuur':'factuur'} ${inv.invoiceNumber}.\r\n\r\nMet vriendelijke groet,\r\nRijschool Den Hartog\r\nStuur je toekomst`;
+  const safe=String(inv.invoiceNumber).replace(/[^a-z0-9_-]/gi,'-');
+  const filename=`${inv.documentType==='credit'?'Creditfactuur':'Factuur'}-${safe}.pdf`;
+  const pdf64=bytesToBase64(new Uint8Array(await pdfBlob.arrayBuffer()));
+  const mime=[
+    `To: ${inv.customer.email}`,
+    `Subject: ${mimeHeader(subject)}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    utf8Base64(body),
+    `--${boundary}`,
+    `Content-Type: application/pdf; name="${filename}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${filename}"`,
+    '',
+    pdf64,
+    `--${boundary}--`,
+    ''
+  ].join('\r\n');
+  return base64Url(bytesToBase64(new TextEncoder().encode(mime)));
+}
+async function sendInvoiceViaGmail(){
+  const inv=collectInvoice('invoice'),error=validateInvoice(inv);
+  if(error){alert(error);return}
+  if(!inv.customer.email){alert('Vul eerst het e-mailadres van de leerling in.');return}
+  $('invoicePreview').innerHTML=previewHTML(inv);
+  const paper=$('invoicePreview');
+  if(paper.scrollHeight>paper.clientHeight+25){alert('Deze factuur is langer dan één A4. Direct verzenden ondersteunt op dit moment één A4.');return}
+  const buttons=[$('gmailSendBtn'),$('gmailSendPreviewBtn')].filter(Boolean);
+  buttons.forEach(b=>b.disabled=true);
+  try{
+    const token=await getGmailAccessToken();
+    const pdf=await elementToPdfBlob(paper);
+    const raw=await buildRawGmailMessage(inv,pdf);
+    const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({raw})
+    });
+    if(!res.ok){
+      const detail=await res.text();
+      throw new Error('Gmail API '+res.status+': '+detail.slice(0,350));
+    }
+    // Ensure invoice is locally saved and mark send metadata.
+    const all=loadJSON(STORAGE_INVOICES,[]);
+    const now=new Date().toISOString();
+    const saved={...inv,status:'invoice',sentAt:now,sentVia:'gmail'};
+    const idx=all.findIndex(x=>x.id===saved.id);
+    if(idx>=0) all[idx]=saved; else all.unshift(saved);
+    saveJSON(STORAGE_INVOICES,all); editingId=saved.id; renderSaved();
+    alert(`Factuur ${inv.invoiceNumber} is verstuurd naar ${inv.customer.email} via Gmail.`);
+  }catch(e){
+    console.error(e);
+    alert('Versturen via Gmail is niet gelukt. '+(e?.message||'Probeer opnieuw.'));
+  }finally{buttons.forEach(b=>b.disabled=false)}
+}
+
 function escapeHTML(v){return String(v??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]))}
 function showPreview(){const inv=collectInvoice('invoice'),error=validateInvoice(inv);if(error){alert(error);return}$('invoicePreview').innerHTML=previewHTML(inv);$('previewDialog').showModal()}
 function showView(name){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===name));$(`${name}View`).classList.add('active');if(name==='saved')renderSaved();if(name==='settings')loadSettings();if(name==='arrangements'){renderArrangements();$('arrangementForm').classList.add('active');updateArrangementUI()}}
 
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.view));$('addLineBtn').onclick=()=>addLine();
 $('toggleExamSplitBtn').onclick=()=>$('examSplit').classList.toggle('active');
-$('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});addLine({type, duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});$('examSplit').classList.remove('active');calculate()};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
+$('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});addLine({type, duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});$('examSplit').classList.remove('active');calculate()};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;if($('gmailSendBtn'))$('gmailSendBtn').onclick=sendInvoiceViaGmail;if($('gmailSendPreviewBtn'))$('gmailSendPreviewBtn').onclick=sendInvoiceViaGmail;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
 $('invoiceDate').value=today();addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
 
 

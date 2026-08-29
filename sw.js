@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v4-6-pwa-1';
+const CACHE='drive-factuur-v4-7-gmail-1';
 
 const FILES=[
   './',
