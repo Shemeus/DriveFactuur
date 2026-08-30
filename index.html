@@ -97,7 +97,11 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
                 <option value="">Handmatig invoeren</option>
               </select>
             </label>
-            <button id="refreshPortalStudentsBtn" type="button" class="secondary">Leerlingen verversen</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="drivePlanLoginBtn" type="button" class="secondary">Aanmelden</button>
+              <button id="refreshPortalStudentsBtn" type="button" class="secondary">Leerlingen verversen</button>
+              <button id="drivePlanLogoutBtn" type="button" class="secondary" style="display:none">Afmelden</button>
+            </div>
           </div>
           <div id="portalLinkStatus" class="portal-link-status">DrivePlan-koppeling controleren…</div>
         </div>
@@ -338,24 +342,59 @@ function renderPortalStudentSelect(){
   });
   if(current && portalStudents.some(s=>s.id===current)) select.value=current;
 }
-async function loadPortalStudents(){
-  if(!window.supabase){
-    setPortalStatus('Supabase-bibliotheek kon niet worden geladen.','error');
-    return;
-  }
+
+async function ensureDriveSupabase(){
+  if(!window.supabase) throw new Error('Supabase-bibliotheek kon niet worden geladen.');
   if(!driveSupabase){
-    driveSupabase=window.supabase.createClient(DRIVE_SUPABASE_URL,DRIVE_SUPABASE_KEY);
+    driveSupabase=window.supabase.createClient(DRIVE_SUPABASE_URL,DRIVE_SUPABASE_KEY,{
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+    });
   }
+  return driveSupabase;
+}
+function updateDrivePlanAuthButtons(session){
+  if($('drivePlanLoginBtn'))$('drivePlanLoginBtn').style.display=session?'none':'inline-block';
+  if($('drivePlanLogoutBtn'))$('drivePlanLogoutBtn').style.display=session?'inline-block':'none';
+}
+async function loginDriveFactuur(){
+  try{
+    const client=await ensureDriveSupabase();
+    const email=prompt('E-mailadres voor DriveFactuur / DrivePlan:');
+    if(!email)return;
+    setPortalStatus('Inloglink aanvragen…');
+    const redirectTo=window.location.origin+window.location.pathname;
+    const {error}=await client.auth.signInWithOtp({
+      email:String(email).trim(),
+      options:{emailRedirectTo:redirectTo,shouldCreateUser:false}
+    });
+    if(error)throw error;
+    setPortalStatus('Inloglink verzonden. Open de e-mail en klik op de link. Daarna kom je terug in DriveFactuur.','ok');
+  }catch(e){setPortalStatus('Aanmelden mislukt: '+(e?.message||e),'error');}
+}
+async function logoutDriveFactuur(){
+  try{
+    const client=await ensureDriveSupabase();
+    await client.auth.signOut();
+    portalStudents=[]; selectedPortalStudentId='';
+    renderPortalStudentSelect(); updateDrivePlanAuthButtons(null);
+    setPortalStatus('Afgemeld. Klik op "Aanmelden" om opnieuw te koppelen.','warn');
+  }catch(e){setPortalStatus('Afmelden mislukt: '+(e?.message||e),'error');}
+}
+
+async function loadPortalStudents(){
+  try{await ensureDriveSupabase();}
+  catch(e){setPortalStatus(e.message,'error');return;}
   setPortalStatus('DrivePlan-leerlingen laden…');
   const {data:{session},error:sessionError}=await driveSupabase.auth.getSession();
   if(sessionError){
     setPortalStatus('DrivePlan-koppeling kon niet worden gecontroleerd: '+sessionError.message,'error');
     return;
   }
+  updateDrivePlanAuthButtons(session);
   if(!session){
     portalStudents=[];
     renderPortalStudentSelect();
-    setPortalStatus('Niet aangemeld bij DrivePlan-cloud. Open DrivePlan op dit apparaat, log daar in en druk daarna op "Leerlingen verversen".','warn');
+    setPortalStatus('DriveFactuur is nog niet aangemeld. Klik op "Aanmelden".','warn');
     return;
   }
   const {data,error}=await driveSupabase
@@ -899,6 +938,8 @@ if($('portalStudentSelect'))$('portalStudentSelect').onchange=e=>{
   const student=portalStudents.find(s=>s.id===id);
   fillCustomerFromPortalStudent(student);
 };
+if($('drivePlanLoginBtn'))$('drivePlanLoginBtn').onclick=loginDriveFactuur;
+if($('drivePlanLogoutBtn'))$('drivePlanLogoutBtn').onclick=logoutDriveFactuur;
 if($('refreshPortalStudentsBtn'))$('refreshPortalStudentsBtn').onclick=loadPortalStudents;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
 $('invoiceDate').value=today();
 loadPortalStudents().catch(e=>setPortalStatus('DrivePlan-koppeling fout: '+(e?.message||e),'error'));addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();

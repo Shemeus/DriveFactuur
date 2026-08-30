@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v5-driveportal-sync';
+const CACHE='drive-factuur-v5-2-auth';
 
 const FILES=[
   './',
