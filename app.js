@@ -15,7 +15,18 @@ function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())}
 function loadJSON(k,fallback){try{return JSON.parse(localStorage.getItem(k))??fallback}catch{return fallback}}
 function saveJSON(k,v){localStorage.setItem(k,JSON.stringify(v))}
 
-const defaultSettings={companyName:'Rijschool den Hartog',companyContact:'',companyStreet:'',companyCity:'',companyPhone:'',companyEmail:'',companyWebsite:'www.rijschooldenhartog.nl',companyKvk:'',companyVat:'',companyIban:''};
+const defaultSettings={companyName:'Rijschool den Hartog',companyContact:'',companyStreet:'',companyCity:'',companyPhone:'',companyEmail:'',companyWebsite:'www.rijschooldenhartog.nl',companyKvk:'',companyVat:'',companyIban:'',priceLesson:'70,00',pricePractical:'285,00',priceReexam:'260,00',priceTtt:'225,00',priceCbr:'143,50'};
+
+function productPrice(type){
+  const s=getSettings();
+  const map={
+    'Rijles':parseAmount(s.priceLesson),
+    'Praktijkexamen':parseAmount(s.pricePractical),
+    'Herexamen':parseAmount(s.priceReexam),
+    'Tussentijdse toets':parseAmount(s.priceTtt)
+  };
+  return Object.prototype.hasOwnProperty.call(map,type)?map[type]:60;
+}
 
 function addLine(data={}){
   const node=$('lineTemplate').content.firstElementChild.cloneNode(true);
@@ -23,9 +34,16 @@ function addLine(data={}){
   node.querySelector('.line-duration').value=data.duration??'60 minuten';
   node.querySelector('.line-description').value=data.description??'';
   node.querySelector('.line-qty').value=data.qty??1;
-  node.querySelector('.line-price').value=(data.price??60).toFixed(2).replace('.',',');
+  const initialType=data.type??'Rijles';
+  const initialPrice=data.price!==undefined?data.price:productPrice(initialType);
+  node.querySelector('.line-price').value=Number(initialPrice).toFixed(2).replace('.',',');
   node.querySelector('.line-vat').value=String(data.vat??21);
   node.querySelector('.remove-line').onclick=()=>{node.remove(); if(!$('lines').children.length)addLine(); calculate()};
+  const typeSelect=node.querySelector('.line-type');
+  typeSelect.addEventListener('change',()=>{
+    node.querySelector('.line-price').value=productPrice(typeSelect.value).toFixed(2).replace('.',',');
+    syncDescription(node); calculate();
+  });
   node.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{syncDescription(node);calculate()}));
   $('lines').appendChild(node); syncDescription(node); calculate();
 }

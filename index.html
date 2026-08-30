@@ -230,6 +230,17 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
           <label>BTW-nummer<input id="companyVat" /></label>
           <label>IBAN<input id="companyIban" /></label>
         </div>
+        <div class="panel" style="margin-top:16px">
+          <h2>Standaardprijzen</h2>
+          <p class="helper">Deze prijzen worden automatisch ingevuld bij nieuwe factuurregels. Je kunt de prijs op een factuurregel altijd handmatig aanpassen.</p>
+          <div class="grid two">
+            <label>Losse rijles<input id="priceLesson" inputmode="decimal" /></label>
+            <label>Praktijkexamen<input id="pricePractical" inputmode="decimal" /></label>
+            <label>Herexamen<input id="priceReexam" inputmode="decimal" /></label>
+            <label>Tussentijdse toets<input id="priceTtt" inputmode="decimal" /></label>
+            <label>CBR-deel btw-vrij<input id="priceCbr" inputmode="decimal" /></label>
+          </div>
+        </div>
         <button id="saveSettingsBtn">Instellingen opslaan</button>
       </div>
     </section>
