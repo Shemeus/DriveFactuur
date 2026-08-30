@@ -18,3 +18,12 @@ V4.6:
 - Knop 'Losse creditfactuur' toegevoegd onder Facturen.
 - Hiermee maak je direct een creditfactuur voor oude/externe facturen (bijv. Plengo), zonder eerst een gewone factuur in Drive Factuur aan te maken.
 - Referentie kan handmatig naar één of meerdere oorspronkelijke factuurnummers verwijzen.
+
+
+Drive Factuur v5 - DrivePlan / DrivePortal koppeling
+- Leerling kiezen uit portal_students (DrivePlan/Supabase).
+- Naam en e-mailadres worden automatisch ingevuld.
+- Na succesvol Gmail-versturen wordt de factuur ook geschreven naar portal_payments.
+- De leerling ziet hem daarna onder Betalingen in DrivePortal.
+- Als DrivePortal bijwerken mislukt, blijft Gmail-verzending succesvol en krijg je een aparte melding.
+- Factuurnummering is in deze versie nog handmatig; automatische jaarreeksen volgen apart.

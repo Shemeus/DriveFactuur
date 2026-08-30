@@ -46,8 +46,16 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
 }
 
 
+
+.portal-link-box{margin-bottom:14px;padding:14px;border:1px solid #bfdbfe;border-radius:11px;background:#eff6ff}
+.portal-link-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.portal-link-status{margin-top:8px;color:#475569;font-size:13px}
+.portal-link-status.ok{color:#166534}.portal-link-status.warn{color:#92400e}.portal-link-status.error{color:#b91c1c}
+@media(max-width:700px){.portal-link-row{grid-template-columns:1fr}}
+
 </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body>
@@ -81,6 +89,19 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
 
       <div class="panel">
         <h2>Klantgegevens</h2>
+
+        <div class="portal-link-box">
+          <div class="portal-link-row">
+            <label>Leerling uit DrivePlan
+              <select id="portalStudentSelect">
+                <option value="">Handmatig invoeren</option>
+              </select>
+            </label>
+            <button id="refreshPortalStudentsBtn" type="button" class="secondary">Leerlingen verversen</button>
+          </div>
+          <div id="portalLinkStatus" class="portal-link-status">DrivePlan-koppeling controleren…</div>
+        </div>
+
         <div class="grid two">
           <label>Naam<input id="customerName" /></label>
           <label>Straat en huisnummer<input id="customerStreet" /></label>
@@ -273,6 +294,138 @@ let editingId=null;
 let editingDocumentType='invoice';
 let editingArrangementId=null;
 
+// DrivePlan / DrivePortal koppeling
+const DRIVE_SUPABASE_URL='https://xkmjwebqtslhepjclxtc.supabase.co';
+const DRIVE_SUPABASE_KEY='sb_publishable_350WZ2zD9owjWkp4bvKAXg_6N63E-h3';
+let driveSupabase=null;
+let portalStudents=[];
+let selectedPortalStudentId='';
+
+
+function setPortalStatus(text,type=''){
+  const el=$('portalLinkStatus');
+  if(!el)return;
+  el.textContent=text;
+  el.className='portal-link-status'+(type?' '+type:'');
+}
+function portalStudentDisplayName(s){
+  return String(s.full_name||s.email||'Onbekende leerling').trim();
+}
+function fillCustomerFromPortalStudent(student){
+  if(!student)return;
+  selectedPortalStudentId=student.id||'';
+  $('customerName').value=student.full_name||'';
+  $('customerEmail').value=student.email||'';
+
+  // Deze velden worden automatisch gebruikt zodra ze later ook in portal_students staan.
+  const street=student.street||student.address||student.customer_street||'';
+  const postal=student.postal_code||student.postal||student.zip||'';
+  const city=student.city||student.place||student.customer_city||'';
+  if(street)$('customerStreet').value=street;
+  if(postal)$('customerPostal').value=postal;
+  if(city)$('customerCity').value=city;
+}
+function renderPortalStudentSelect(){
+  const select=$('portalStudentSelect');
+  if(!select)return;
+  const current=selectedPortalStudentId||select.value||'';
+  select.innerHTML='<option value="">Handmatig invoeren</option>';
+  portalStudents.forEach(student=>{
+    const opt=document.createElement('option');
+    opt.value=student.id;
+    opt.textContent=`${portalStudentDisplayName(student)}${student.email?' — '+student.email:''}`;
+    select.appendChild(opt);
+  });
+  if(current && portalStudents.some(s=>s.id===current)) select.value=current;
+}
+async function loadPortalStudents(){
+  if(!window.supabase){
+    setPortalStatus('Supabase-bibliotheek kon niet worden geladen.','error');
+    return;
+  }
+  if(!driveSupabase){
+    driveSupabase=window.supabase.createClient(DRIVE_SUPABASE_URL,DRIVE_SUPABASE_KEY);
+  }
+  setPortalStatus('DrivePlan-leerlingen laden…');
+  const {data:{session},error:sessionError}=await driveSupabase.auth.getSession();
+  if(sessionError){
+    setPortalStatus('DrivePlan-koppeling kon niet worden gecontroleerd: '+sessionError.message,'error');
+    return;
+  }
+  if(!session){
+    portalStudents=[];
+    renderPortalStudentSelect();
+    setPortalStatus('Niet aangemeld bij DrivePlan-cloud. Open DrivePlan op dit apparaat, log daar in en druk daarna op "Leerlingen verversen".','warn');
+    return;
+  }
+  const {data,error}=await driveSupabase
+    .from('portal_students')
+    .select('*')
+    .eq('active',true)
+    .order('full_name',{ascending:true});
+  if(error){
+    portalStudents=[];
+    renderPortalStudentSelect();
+    setPortalStatus('Leerlingen laden mislukt: '+error.message,'error');
+    return;
+  }
+  portalStudents=data||[];
+  renderPortalStudentSelect();
+  setPortalStatus(`${portalStudents.length} leerling${portalStudents.length===1?'':'en'} uit DrivePlan beschikbaar.`,'ok');
+}
+function findPortalStudentForInvoice(inv){
+  if(inv.portalStudentId){
+    const byId=portalStudents.find(s=>s.id===inv.portalStudentId);
+    if(byId)return byId;
+  }
+  const email=String(inv.customer?.email||'').trim().toLowerCase();
+  if(email){
+    const byEmail=portalStudents.find(s=>String(s.email||'').trim().toLowerCase()===email);
+    if(byEmail)return byEmail;
+  }
+  return null;
+}
+async function syncInvoiceToDrivePortal(inv){
+  if(!driveSupabase)return {ok:false,reason:'DrivePlan-cloud is niet gekoppeld op dit apparaat.'};
+
+  const student=findPortalStudentForInvoice(inv);
+  if(!student)return {ok:false,reason:'Geen gekoppelde DrivePlan-leerling gevonden voor dit e-mailadres.'};
+
+  const description=inv.documentType==='credit'
+    ? `Creditfactuur ${inv.invoiceNumber}`
+    : `${inv.term?`Termijn ${inv.term} · `:''}Factuur ${inv.invoiceNumber}`;
+
+  // Een creditfactuur is geen openstaande betaling; bedrag wordt negatief weergegeven.
+  const amount=inv.documentType==='credit' ? -Math.abs(Number(inv.grand||0)) : Number(inv.grand||0);
+  const status=inv.documentType==='credit' ? 'paid' : (Number(inv.open||0)>0 ? 'open' : 'paid');
+
+  const {data:existing,error:findError}=await driveSupabase
+    .from('portal_payments')
+    .select('id')
+    .eq('student_id',student.id)
+    .eq('invoice_number',inv.invoiceNumber)
+    .limit(1);
+  if(findError)return {ok:false,reason:findError.message};
+
+  const payload={
+    student_id:student.id,
+    invoice_number:inv.invoiceNumber,
+    description,
+    amount,
+    invoice_date:inv.invoiceDate||new Date().toISOString().slice(0,10),
+    status
+  };
+
+  let result;
+  if(existing && existing.length){
+    result=await driveSupabase.from('portal_payments').update(payload).eq('id',existing[0].id);
+  }else{
+    result=await driveSupabase.from('portal_payments').insert(payload);
+  }
+  if(result.error)return {ok:false,reason:result.error.message};
+  return {ok:true,student};
+}
+
 function parseAmount(v){
   if(typeof v==='number') return Number.isFinite(v)?v:0;
   const cleaned=String(v??'').trim().replace(/\s/g,'').replace(/\./g,'').replace(',','.').replace(/[^0-9.-]/g,'');
@@ -324,15 +477,15 @@ function calculate(){
   return{subtotal,vatTotal,grand,paid,open};
 }
 function collectInvoice(status='invoice'){
-  const totals=calculate(); return {id:editingId??uid(),status,documentType:editingDocumentType,createdAt:new Date().toISOString(),invoiceNumber:$('invoiceNumber').value.trim(),term:$('term').value.trim(),invoiceDate:$('invoiceDate').value,paymentDays:Number($('paymentDays').value)||0,reference:$('reference').value.trim(),customer:{name:$('customerName').value.trim(),street:$('customerStreet').value.trim(),postal:$('customerPostal').value.trim(),city:$('customerCity').value.trim(),email:$('customerEmail').value.trim()},lines:collectLines(),paid:totals.paid,...totals};
+  const totals=calculate(); return {id:editingId??uid(),status,documentType:editingDocumentType,createdAt:new Date().toISOString(),invoiceNumber:$('invoiceNumber').value.trim(),term:$('term').value.trim(),invoiceDate:$('invoiceDate').value,paymentDays:Number($('paymentDays').value)||0,reference:$('reference').value.trim(),portalStudentId:selectedPortalStudentId||'',customer:{name:$('customerName').value.trim(),street:$('customerStreet').value.trim(),postal:$('customerPostal').value.trim(),city:$('customerCity').value.trim(),email:$('customerEmail').value.trim()},lines:collectLines(),paid:totals.paid,...totals};
 }
 function validateInvoice(inv){if(!inv.invoiceNumber)return 'Vul een factuurnummer in.'; if(!inv.customer.name)return 'Vul de naam van de leerling in.'; if(!inv.lines.length)return 'Voeg minimaal één factuurregel toe.'; return ''}
 function saveInvoice(status){
   const inv=collectInvoice(status),error=validateInvoice(inv); if(error){alert(error);return}
   const all=loadJSON(STORAGE_INVOICES,[]),idx=all.findIndex(x=>x.id===inv.id); if(idx>=0)all[idx]=inv;else all.unshift(inv); saveJSON(STORAGE_INVOICES,all); editingId=inv.id; renderSaved(); alert(status==='draft'?'Concept opgeslagen.':(inv.documentType==='credit'?'Creditfactuur opgeslagen.':'Factuur opgeslagen.'));
 }
-function clearForm(){editingId=null;editingDocumentType='invoice'; ['invoiceNumber','term','reference','customerName','customerStreet','customerPostal','customerCity','customerEmail'].forEach(id=>$(id).value=''); $('invoiceDate').value=today(); $('paymentDays').value=14; $('paidAmount').value='0,00'; $('lines').innerHTML=''; addLine();calculate()}
-function loadInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);if(!inv)return;editingId=id;editingDocumentType=inv.documentType||'invoice';$('invoiceNumber').value=inv.invoiceNumber;$('term').value=inv.term;$('invoiceDate').value=inv.invoiceDate;$('paymentDays').value=inv.paymentDays;$('reference').value=inv.reference;$('customerName').value=inv.customer.name;$('customerStreet').value=inv.customer.street;$('customerPostal').value=inv.customer.postal;$('customerCity').value=inv.customer.city;$('customerEmail').value=inv.customer.email||'';$('paidAmount').value=(inv.paid||0).toFixed(2).replace('.',',');$('lines').innerHTML='';inv.lines.forEach(addLine);showView('invoice');calculate()}
+function clearForm(){editingId=null;editingDocumentType='invoice';selectedPortalStudentId='';if($('portalStudentSelect'))$('portalStudentSelect').value=''; ['invoiceNumber','term','reference','customerName','customerStreet','customerPostal','customerCity','customerEmail'].forEach(id=>$(id).value=''); $('invoiceDate').value=today(); $('paymentDays').value=14; $('paidAmount').value='0,00'; $('lines').innerHTML=''; addLine();calculate()}
+function loadInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);if(!inv)return;editingId=id;editingDocumentType=inv.documentType||'invoice';$('invoiceNumber').value=inv.invoiceNumber;$('term').value=inv.term;$('invoiceDate').value=inv.invoiceDate;$('paymentDays').value=inv.paymentDays;$('reference').value=inv.reference;$('customerName').value=inv.customer.name;$('customerStreet').value=inv.customer.street;$('customerPostal').value=inv.customer.postal;$('customerCity').value=inv.customer.city;$('customerEmail').value=inv.customer.email||'';selectedPortalStudentId=inv.portalStudentId||'';if($('portalStudentSelect'))$('portalStudentSelect').value=selectedPortalStudentId;$('paidAmount').value=(inv.paid||0).toFixed(2).replace('.',',');$('lines').innerHTML='';inv.lines.forEach(addLine);showView('invoice');calculate()}
 function duplicateInvoice(id){const inv=loadJSON(STORAGE_INVOICES,[]).find(x=>x.id===id);if(!inv)return;loadInvoice(id);editingId=null;editingDocumentType='invoice';$('invoiceNumber').value='';$('invoiceDate').value=today();if(inv.term&&inv.term.includes('/')){const[a,b]=inv.term.split('/').map(Number);if(a&&b&&a<b)$('term').value=`${a+1}/${b}`;}showView('invoice')}
 function newStandaloneCredit(){
   clearForm();
@@ -365,6 +518,8 @@ function creditInvoice(id){
   $('customerPostal').value=inv.customer?.postal||'';
   $('customerCity').value=inv.customer?.city||'';
   $('customerEmail').value=inv.customer?.email||'';
+  selectedPortalStudentId=inv.portalStudentId||'';
+  if($('portalStudentSelect'))$('portalStudentSelect').value=selectedPortalStudentId;
   $('paidAmount').value='0,00';
   $('lines').innerHTML='';
   // Neem de oorspronkelijke regels over als startpunt. Pas aantallen/bedragen aan
@@ -708,7 +863,20 @@ async function sendInvoiceViaGmail(){
     editingId=saved.id;
     renderSaved();
 
-    alert(`Factuur ${inv.invoiceNumber} is verstuurd naar ${inv.customer.email} via Gmail.`);
+    stage='DrivePortal bijwerken';
+    let portalResult={ok:false,reason:'Niet uitgevoerd'};
+    try{
+      portalResult=await syncInvoiceToDrivePortal(saved);
+    }catch(portalError){
+      console.error('DrivePortal bijwerken mislukt',portalError);
+      portalResult={ok:false,reason:portalError?.message||String(portalError)};
+    }
+
+    if(portalResult.ok){
+      alert(`${inv.documentType==='credit'?'Creditfactuur':'Factuur'} ${inv.invoiceNumber} is verstuurd naar ${inv.customer.email} via Gmail en staat nu ook bij ${portalResult.student.full_name||'de leerling'} in DrivePortal.`);
+    }else{
+      alert(`${inv.documentType==='credit'?'Creditfactuur':'Factuur'} ${inv.invoiceNumber} is WEL verstuurd naar ${inv.customer.email} via Gmail.\n\nDrivePortal kon niet worden bijgewerkt: ${portalResult.reason}`);
+    }
   }catch(e){
     console.error('DriveFactuur Gmail fout bij '+stage,e);
     alert('Versturen via Gmail is niet gelukt bij "'+stage+'".\n\n'+googleErrorText(e));
@@ -723,8 +891,17 @@ function showView(name){document.querySelectorAll('.view').forEach(v=>v.classLis
 
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.view));$('addLineBtn').onclick=()=>addLine();
 $('toggleExamSplitBtn').onclick=()=>$('examSplit').classList.toggle('active');
-$('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});addLine({type, duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});$('examSplit').classList.remove('active');calculate()};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;if($('gmailSendBtn'))$('gmailSendBtn').onclick=sendInvoiceViaGmail;if($('gmailSendPreviewBtn'))$('gmailSendPreviewBtn').onclick=sendInvoiceViaGmail;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
-$('invoiceDate').value=today();addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
+$('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});addLine({type, duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});$('examSplit').classList.remove('active');calculate()};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;if($('gmailSendBtn'))$('gmailSendBtn').onclick=sendInvoiceViaGmail;if($('gmailSendPreviewBtn'))$('gmailSendPreviewBtn').onclick=sendInvoiceViaGmail;
+if($('portalStudentSelect'))$('portalStudentSelect').onchange=e=>{
+  const id=e.target.value;
+  selectedPortalStudentId=id||'';
+  if(!id)return;
+  const student=portalStudents.find(s=>s.id===id);
+  fillCustomerFromPortalStudent(student);
+};
+if($('refreshPortalStudentsBtn'))$('refreshPortalStudentsBtn').onclick=loadPortalStudents;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
+$('invoiceDate').value=today();
+loadPortalStudents().catch(e=>setPortalStatus('DrivePlan-koppeling fout: '+(e?.message||e),'error'));addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
 
 
 // v4.3: ruim oude PWA-caches en serviceworkers op zodat de nieuwste interface zichtbaar wordt.
