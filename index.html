@@ -359,7 +359,7 @@ function updateDrivePlanAuthButtons(session){
 async function loginDriveFactuur(){
   try{
     const client=await ensureDriveSupabase();
-    const email=prompt('E-mailadres voor DriveFactuur / DrivePlan:');
+    const email=prompt('E-mailadres voor DriveFactuur-beheer (gebruik het rijschoolaccount met portalrechten):','rijschooldenhartog@gmail.com');
     if(!email)return;
     setPortalStatus('Inloglink aanvragen…');
     const redirectTo=window.location.origin+window.location.pathname;
@@ -379,6 +379,33 @@ async function logoutDriveFactuur(){
     renderPortalStudentSelect(); updateDrivePlanAuthButtons(null);
     setPortalStatus('Afgemeld. Klik op "Aanmelden" om opnieuw te koppelen.','warn');
   }catch(e){setPortalStatus('Afmelden mislukt: '+(e?.message||e),'error');}
+}
+
+
+async function handleDriveFactuurAuthCallback(){
+  const client=await ensureDriveSupabase();
+
+  // PKCE callback: Supabase redirects back with ?code=...
+  const url=new URL(window.location.href);
+  const code=url.searchParams.get('code');
+  if(code){
+    setPortalStatus('Aanmelding afronden…');
+    const {error}=await client.auth.exchangeCodeForSession(code);
+    if(error) throw error;
+    url.searchParams.delete('code');
+    history.replaceState({},document.title,url.pathname+(url.search?'?'+url.searchParams.toString():''));
+  }
+
+  // For implicit/magic-link flows supabase-js may already have persisted the session.
+  const {data:{session},error}=await client.auth.getSession();
+  if(error) throw error;
+  updateDrivePlanAuthButtons(session);
+
+  if(session){
+    setPortalStatus(`Aangemeld als ${session.user?.email||'DriveFactuur-account'}. Leerlingen laden…`,'ok');
+    return true;
+  }
+  return false;
 }
 
 async function loadPortalStudents(){
@@ -942,7 +969,35 @@ if($('drivePlanLoginBtn'))$('drivePlanLoginBtn').onclick=loginDriveFactuur;
 if($('drivePlanLogoutBtn'))$('drivePlanLogoutBtn').onclick=logoutDriveFactuur;
 if($('refreshPortalStudentsBtn'))$('refreshPortalStudentsBtn').onclick=loadPortalStudents;$('closePreviewBtn').onclick=()=>$('previewDialog').close();$('printPreviewBtn').onclick=()=>window.print();$('sharePreviewBtn').onclick=shareInvoice;$('saveSettingsBtn').onclick=saveSettings;$('companyLogoFile').onchange=e=>saveLogoFile(e.target.files?.[0]);$('removeLogoBtn').onclick=()=>{const s=getSettings();s.companyLogo='';saveJSON(STORAGE_SETTINGS,s);updateLogoPreview('');$('companyLogoFile').value=''};$('newInvoiceBtn').onclick=()=>{clearForm();showView('invoice')};$('newStandaloneCreditBtn').onclick=newStandaloneCredit;$('newArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('cancelArrangementBtn').onclick=()=>{clearArrangementForm();$('arrangementForm').classList.add('active')};$('addBreakdownBtn').onclick=()=>addBreakdownLine();$('calculateArrangementBtn').onclick=calculateArrangement;document.querySelectorAll('.payment-choice').forEach(b=>b.onclick=()=>{$('arrPaymentChoice').value=b.dataset.payment;updateArrangementUI()});$('arrFirst').oninput=calculateArrangement;$('arrRemainingTerms').oninput=calculateArrangement;$('arrTotal').oninput=calculateArrangement;$('arrPackage').onchange=()=>{const p=PACKAGE_DATA[$('arrPackage').value];if(p)$('arrTotal').value=p.total.toFixed(2).replace('.',',');calculateArrangement()};$('saveArrangementBtn').onclick=saveArrangement;
 $('invoiceDate').value=today();
-loadPortalStudents().catch(e=>setPortalStatus('DrivePlan-koppeling fout: '+(e?.message||e),'error'));addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
+(async()=>{
+  try{
+    await ensureDriveSupabase();
+
+    // Re-load students whenever Supabase finishes a real sign-in.
+    driveSupabase.auth.onAuthStateChange((event,session)=>{
+      updateDrivePlanAuthButtons(session);
+      if(event==='SIGNED_IN' && session){
+        setTimeout(()=>loadPortalStudents().catch(e=>setPortalStatus('Leerlingen laden mislukt: '+(e?.message||e),'error')),0);
+      }
+      if(event==='SIGNED_OUT'){
+        portalStudents=[];
+        selectedPortalStudentId='';
+        renderPortalStudentSelect();
+        setPortalStatus('DriveFactuur is afgemeld. Klik op "Aanmelden".','warn');
+      }
+    });
+
+    const signedIn=await handleDriveFactuurAuthCallback();
+    if(signedIn){
+      await loadPortalStudents();
+    }else{
+      setPortalStatus('DriveFactuur is nog niet aangemeld. Klik op "Aanmelden".','warn');
+    }
+  }catch(e){
+    setPortalStatus('DriveFactuur-aanmelding fout: '+(e?.message||e),'error');
+  }
+})();
+addLine();loadSettings();renderSaved();defaultBreakdown();renderArrangements();
 
 
 // v4.3: ruim oude PWA-caches en serviceworkers op zodat de nieuwste interface zichtbaar wordt.
