@@ -92,9 +92,9 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
 
         <div class="portal-link-box">
           <div class="portal-link-row">
-            <label>Leerling uit DrivePlan
+            <label>Kies leerling
               <select id="portalStudentSelect">
-                <option value="">Handmatig invoeren</option>
+                <option value="">-- Kies leerling --</option>
               </select>
             </label>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -318,22 +318,25 @@ function portalStudentDisplayName(s){
 function fillCustomerFromPortalStudent(student){
   if(!student)return;
   selectedPortalStudentId=student.id||'';
-  $('customerName').value=student.full_name||'';
-  $('customerEmail').value=student.email||'';
+  const name=String(student.full_name||'').trim();
+  const email=String(student.email||'').trim();
+  const address=String(student.address||'').trim();
+  const postal=String(student.postal_code||'').trim();
+  const city=String(student.city||'').trim();
 
-  // Deze velden worden automatisch gebruikt zodra ze later ook in portal_students staan.
-  const street=student.street||student.address||student.customer_street||'';
-  const postal=student.postal_code||student.postal||student.zip||'';
-  const city=student.city||student.place||student.customer_city||'';
-  if(street)$('customerStreet').value=street;
-  if(postal)$('customerPostal').value=postal;
-  if(city)$('customerCity').value=city;
+  if($('customerName')) $('customerName').value=name;
+  if($('customerEmail')) $('customerEmail').value=email;
+  if($('customerStreet')) $('customerStreet').value=address;
+  if($('customerPostal')) $('customerPostal').value=postal;
+  if($('customerCity')) $('customerCity').value=city;
+
+  setPortalStatus(`Gekozen leerling: ${name||email||'onbekend'}${email?' · '+email:''}`,'ok');
 }
 function renderPortalStudentSelect(){
   const select=$('portalStudentSelect');
   if(!select)return;
   const current=selectedPortalStudentId||select.value||'';
-  select.innerHTML='<option value="">Handmatig invoeren</option>';
+  select.innerHTML='<option value="">-- Kies leerling --</option>';
   portalStudents.forEach(student=>{
     const opt=document.createElement('option');
     opt.value=student.id;
@@ -961,8 +964,15 @@ $('addSplitExamBtn').onclick=()=>{const type=$('examType').value,total=parseAmou
 if($('portalStudentSelect'))$('portalStudentSelect').onchange=e=>{
   const id=e.target.value;
   selectedPortalStudentId=id||'';
-  if(!id)return;
-  const student=portalStudents.find(s=>s.id===id);
+  if(!id){
+    setPortalStatus('Handmatige klantinvoer geselecteerd.','');
+    return;
+  }
+  const student=portalStudents.find(s=>String(s.id)===String(id));
+  if(!student){
+    setPortalStatus('De gekozen leerling kon niet worden gevonden. Ververs de leerlingenlijst.','error');
+    return;
+  }
   fillCustomerFromPortalStudent(student);
 };
 if($('drivePlanLoginBtn'))$('drivePlanLoginBtn').onclick=loginDriveFactuur;
