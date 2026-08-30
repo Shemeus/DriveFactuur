@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v5-5-prijslijst';
+const CACHE='drive-factuur-v5-6-prijslijst-fix';
 
 const FILES=[
   './',
