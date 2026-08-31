@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v5-7-examen-prijsmotor';
+const CACHE='drive-factuur-v5-8-mobile-login';
 
 const FILES=[
   './',

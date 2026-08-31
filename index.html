@@ -391,7 +391,7 @@ async function loginDriveFactuur(){
     const email=prompt('E-mailadres voor DriveFactuur-beheer (gebruik het rijschoolaccount met portalrechten):','rijschooldenhartog@gmail.com');
     if(!email)return;
     setPortalStatus('Inloglink aanvragen…');
-    const redirectTo=window.location.origin+window.location.pathname;
+    const redirectTo='https://shemeus.github.io/DriveFactuur/';
     const {error}=await client.auth.signInWithOtp({
       email:String(email).trim(),
       options:{emailRedirectTo:redirectTo,shouldCreateUser:false}
