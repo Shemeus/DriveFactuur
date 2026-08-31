@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v5-8-mobile-login';
+const CACHE='drive-factuur-v5-9-clean-lines';
 
 const FILES=[
   './',

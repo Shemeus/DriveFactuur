@@ -129,10 +129,8 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
                 <option value="Tussentijdse toets">Tussentijdse toets (TTT)</option>
                 <option value="Faalangstexamen">Faalangstexamen</option>
                 <option value="BNOR-examen">BNOR-examen</option>
-                <option value="Eigen examen">Eigen examen / andere CBR-dienst</option>
               </select>
             </label>
-            <label id="customExamNameWrap" class="hidden">Naam examen / dienst<input id="customExamName" placeholder="Bijv. medisch rijexamen" /></label>
             <label>Totaalbedrag incl. btw<input id="examTotal" inputmode="decimal" /></label>
             <label>CBR-deel btw-vrij<input id="examCbr" inputmode="decimal" /></label>
             <div style="align-self:end"><button id="addSplitExamBtn" type="button">Gesplitst toevoegen</button></div>
@@ -252,6 +250,13 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
             <label>Faalangst CBR-deel<input id="cbrFear" inputmode="decimal" placeholder="Zelf invullen" /></label>
             <label>BNOR-examen totaal<input id="priceBnor" inputmode="decimal" placeholder="Zelf invullen" /></label>
             <label>BNOR CBR-deel<input id="cbrBnor" inputmode="decimal" placeholder="Zelf invullen" /></label>
+            <label>Vrij examen 1 naam<input id="customExam1Name" placeholder="Bijv. A-examen" /></label>
+            <label>Vrij examen 1 totaal<input id="customExam1Total" inputmode="decimal" placeholder="Zelf invullen" /></label>
+            <label>Vrij examen 1 CBR-deel<input id="customExam1Cbr" inputmode="decimal" placeholder="Zelf invullen" /></label>
+            <div></div>
+            <label>Vrij examen 2 naam<input id="customExam2Name" placeholder="Bijv. B-examen" /></label>
+            <label>Vrij examen 2 totaal<input id="customExam2Total" inputmode="decimal" placeholder="Zelf invullen" /></label>
+            <label>Vrij examen 2 CBR-deel<input id="customExam2Cbr" inputmode="decimal" placeholder="Zelf invullen" /></label>
           </div>
         </div>
         <button id="saveSettingsBtn">Instellingen opslaan</button>
@@ -273,17 +278,9 @@ dialog{width:min(1000px,100vw);max-height:96vh;border:0;border-radius:12px;paddi
     <div class="invoice-line">
       <label>Soort
         <select class="line-type">
-          <option value="Termijn Rijopleiding">Termijn Rijopleiding</option>
           <option value="Rijles">Rijles</option>
-          <option value="Praktijkexamen">Praktijkexamen</option>
-          <option value="Herexamen">Herexamen</option>
-          <option value="Tussentijdse toets">Tussentijdse toets</option>
-          <option value="Faalangstexamen">Faalangstexamen</option>
-          <option value="BNOR-examen">BNOR-examen</option>
-          <option value="CBR Praktijkexamen">CBR Praktijkexamen</option>
-          <option value="CBR TTT">CBR TTT</option>
           <option value="CBR-kosten">CBR-kosten</option>
-          <option value="Overig">Overig</option>
+          <option value="Overig">Overige</option>
         </select>
       </label>
       <label>Duur
@@ -532,7 +529,7 @@ function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())}
 function loadJSON(k,fallback){try{return JSON.parse(localStorage.getItem(k))??fallback}catch{return fallback}}
 function saveJSON(k,v){localStorage.setItem(k,JSON.stringify(v))}
 
-const defaultSettings={companyName:'Rijschool den Hartog',companyContact:'',companyStreet:'',companyCity:'',companyPhone:'',companyEmail:'',companyWebsite:'www.rijschooldenhartog.nl',companyKvk:'',companyVat:'',companyIban:'',companyLogo:'',priceLesson:'70,00',pricePractical:'285,00',cbrPractical:'143,50',priceReexam:'260,00',cbrReexam:'143,50',priceTtt:'225,00',cbrTtt:'143,50',priceFear:'',cbrFear:'',priceBnor:'',cbrBnor:''};
+const defaultSettings={companyName:'Rijschool den Hartog',companyContact:'',companyStreet:'',companyCity:'',companyPhone:'',companyEmail:'',companyWebsite:'www.rijschooldenhartog.nl',companyKvk:'',companyVat:'',companyIban:'',companyLogo:'',priceLesson:'70,00',pricePractical:'285,00',cbrPractical:'143,50',priceReexam:'260,00',cbrReexam:'143,50',priceTtt:'225,00',cbrTtt:'143,50',priceFear:'',cbrFear:'',priceBnor:'',cbrBnor:'',customExam1Name:'',customExam1Total:'',customExam1Cbr:'',customExam2Name:'',customExam2Total:'',customExam2Cbr:''};
 
 function examPreset(type){
   const s=getSettings();
@@ -554,16 +551,30 @@ function productPrice(type){
   return parseAmount(s.priceLesson)||0;
 }
 
+function refreshCustomExamOptions(){
+  const s=getSettings();
+  const select=$('examType');
+  if(!select)return;
+  select.querySelectorAll('option[data-custom-exam]').forEach(o=>o.remove());
+  [
+    {key:'custom1',name:String(s.customExam1Name||'').trim()},
+    {key:'custom2',name:String(s.customExam2Name||'').trim()}
+  ].forEach(x=>{
+    if(!x.name)return;
+    const o=document.createElement('option');
+    o.value=x.key; o.textContent=x.name; o.dataset.customExam='1';
+    select.appendChild(o);
+  });
+}
+
 function updateExamSplitPreset(){
+  refreshCustomExamOptions();
   const type=$('examType').value;
-  const custom=type==='Eigen examen';
-  $('customExamNameWrap').classList.toggle('hidden',!custom);
-  if(custom){
-    $('examTotal').value='';
-    $('examCbr').value='';
-    return;
-  }
-  const p=examPreset(type);
+  const s=getSettings();
+  let p;
+  if(type==='custom1') p={total:parseAmount(s.customExam1Total),cbr:parseAmount(s.customExam1Cbr)};
+  else if(type==='custom2') p={total:parseAmount(s.customExam2Total),cbr:parseAmount(s.customExam2Cbr)};
+  else p=examPreset(type);
   $('examTotal').value=p.total>0?p.total.toFixed(2).replace('.',','):'';
   $('examCbr').value=p.cbr>0?p.cbr.toFixed(2).replace('.',','):'';
 }
@@ -1034,9 +1045,11 @@ $('toggleExamSplitBtn').onclick=()=>{
 $('examType').addEventListener('change',updateExamSplitPreset);
 $('addSplitExamBtn').onclick=()=>{
   const selected=$('examType').value;
-  const type=selected==='Eigen examen'?$('customExamName').value.trim():selected;
+  const s=getSettings();
+  const type=selected==='custom1'?String(s.customExam1Name||'').trim():
+             selected==='custom2'?String(s.customExam2Name||'').trim():selected;
   const total=parseAmount($('examTotal').value),cbr=parseAmount($('examCbr').value);
-  if(!type){alert('Vul de naam van het examen of de CBR-dienst in.');return}
+  if(!type){alert('Kies een examen.');return}
   if(total<=0||cbr<0||cbr>total){alert('Controleer het totaalbedrag en het CBR-deel.');return}
   addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});
   addLine({type:'Overig',duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});
