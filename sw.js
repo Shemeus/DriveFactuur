@@ -1,4 +1,4 @@
-const CACHE='drive-factuur-v5-9-clean-lines';
+const CACHE='drive-factuur-v6-0-duplicate-numbers';
 
 const FILES=[
   './',

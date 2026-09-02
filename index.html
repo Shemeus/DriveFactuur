@@ -972,8 +972,50 @@ async function gmailApiSend(token, raw){
   }
   try{return JSON.parse(txt)}catch(e){return {ok:true}}
 }
+
+function normalizeInvoiceNumber(value){return String(value??'').trim().toLowerCase();}
+
+async function duplicateInvoiceNumber(number,currentId=''){
+  const wanted=normalizeInvoiceNumber(number);
+  if(!wanted)return {exists:false};
+
+  // 1. Lokale DriveFactuur-historie.
+  try{
+    const rows=loadJSON('driveinvoice.invoices.v1',[]);
+    if(Array.isArray(rows)){
+      const hit=rows.find(inv=>normalizeInvoiceNumber(inv.invoiceNumber)===wanted && String(inv.id||'')!==String(currentId||''));
+      if(hit)return {exists:true,source:'DriveFactuur'};
+    }
+  }catch(e){}
+
+  // 2. Supabase / DrivePortal. Controleer nummer GLOBAAL, dus niet alleen bij dezelfde leerling.
+  try{
+    const client=await ensureDriveSupabase();
+    const {data,error}=await client.from('portal_payments')
+      .select('id,invoice_number')
+      .eq('invoice_number',String(number).trim())
+      .limit(1);
+    if(!error && data && data.length)return {exists:true,source:'DrivePortal'};
+  }catch(e){
+    console.warn('Controle DrivePortal factuurnummer overgeslagen:',e);
+  }
+  return {exists:false};
+}
+
+async function guardInvoiceNumber(inv){
+  if(!inv.invoiceNumber){alert('Vul een factuurnummer in.');return false;}
+  const result=await duplicateInvoiceNumber(inv.invoiceNumber,inv.id);
+  if(result.exists){
+    alert(`Factuurnummer ${inv.invoiceNumber} bestaat al (${result.source}). Kies een ander factuurnummer.`);
+    $('invoiceNumber').focus();
+    return false;
+  }
+  return true;
+}
+
 async function sendInvoiceViaGmail(){
   const inv=collectInvoice('invoice'),error=validateInvoice(inv);
+  if(!(await guardInvoiceNumber(inv))) return;
   if(error){alert(error);return}
   if(!inv.customer.email){alert('Vul eerst het e-mailadres van de leerling in.');return}
 
@@ -1054,7 +1096,12 @@ $('addSplitExamBtn').onclick=()=>{
   addLine({type:'CBR-kosten',duration:'',description:`CBR ${type}`,qty:1,price:cbr,vat:0});
   addLine({type:'Overig',duration:'',description:`Rijschoolkosten ${type}`,qty:1,price:total-cbr,vat:21});
   $('examSplit').classList.remove('active');calculate();
-};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=()=>saveInvoice('invoice');$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;if($('gmailSendBtn'))$('gmailSendBtn').onclick=sendInvoiceViaGmail;if($('gmailSendPreviewBtn'))$('gmailSendPreviewBtn').onclick=sendInvoiceViaGmail;
+};$('paidAmount').addEventListener('input',calculate);$('saveDraftBtn').onclick=()=>saveInvoice('draft');$('saveInvoiceBtn').onclick=async()=>{
+  const inv=collectInvoice('invoice'),error=validateInvoice(inv);
+  if(error){alert(error);return}
+  if(!(await guardInvoiceNumber(inv)))return;
+  saveInvoice('invoice');
+};$('previewBtn').onclick=showPreview;$('printBtn').onclick=()=>{showPreview();setTimeout(()=>window.print(),150)};$('shareBtn').onclick=shareInvoice;if($('gmailSendBtn'))$('gmailSendBtn').onclick=sendInvoiceViaGmail;if($('gmailSendPreviewBtn'))$('gmailSendPreviewBtn').onclick=sendInvoiceViaGmail;
 if($('portalStudentSelect'))$('portalStudentSelect').onchange=e=>{
   const id=e.target.value;
   selectedPortalStudentId=id||'';
